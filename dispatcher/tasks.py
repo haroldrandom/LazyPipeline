@@ -1,5 +1,7 @@
 import time
 from datetime import timedelta
+from abc import ABCMeta
+from abc import abstractmethod
 from celery.utils.log import get_task_logger
 from celery.exceptions import SoftTimeLimitExceeded
 
@@ -37,7 +39,7 @@ class ControllerBaseTask(BaseTask):
         self._parse_config()
 
 
-class WorkerBaseTask(BaseTask):
+class WorkerBaseTask(BaseTask, metaclass=ABCMeta):
     """ Parse config and run script"""
 
     ignore_result = True
@@ -47,29 +49,49 @@ class WorkerBaseTask(BaseTask):
     soft_time_limit = 3600
     time_limit = soft_time_limit + 2
 
-    def __init__(self):
-        super(BaseTask, self).__init__()
+    @abstractmethod
+    def config(self, node):
+        pass
 
-    def fetch_data_from_queue(self):
-        time.sleep(8)
-        print('fetch_data_from worker queue')
+    @abstractmethod
+    def pull_data_from_upstream(self):
+        pass
 
 
-# celery_app.register_task(ControllerBaseTask())
-# celery_app.register_task(WorkerBaseTask())
+class MultiUpstreamWorkerTask(WorkerBaseTask):
+    """ Worker which can receive data from multiple uptreams """
+
+    def config(self, node):
+        self.upstream_data = {}
+
+    def pull_data_from_upstream(self):
+        if self.configed is False:
+            raise Exception("Worker hasn't been configed. Call config() first.")
+
+        upstream_data = {}
+        for up in self.upstreams:
+            upstream_data[up] = {}
+
+        while True:
+            msg = ''
+            if msg['is_finished']
 
 
 def run_job(base=ControllerBaseTask):
     pass
 
 
-@celery_app.task(base=WorkerBaseTask)
-def run_script(*args, **kwargs):
+@celery_app.task(base=MultiUpstreamWorkerTask)
+def run_script(worker_conf):
     self = run_script
 
     try:
-        print('run script')
-        self.fetch_data_from_queue()
+        self.config(worker_conf)
+    except:
+        return
+
+    try:
+        script_args = self.pull_data_from_upstream()
     except SoftTimeLimitExceeded:
         logger.error('SoftTimeLimitExceeded !')
     finally:

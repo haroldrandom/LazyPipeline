@@ -23,7 +23,7 @@ class Command(BaseCommand):
 
         txt = '[%s] %s' % (self._now, 'starting celery workers...')
         self.stdout.write(self.style.SUCCESS(txt))
-        self._run_shell_cmd('celery -A LazyPipeline worker -B -l INFO')
+        self._run_shell_cmd('celery -A LazyPipeline worker -l INFO')
 
     @staticmethod
     def _run_shell_cmd(cmd):
