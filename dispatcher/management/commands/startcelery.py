@@ -1,30 +1,45 @@
+import os
+import time
 import shlex
-import subprocess
 from datetime import datetime
 
 from django.core.management.base import BaseCommand
-from django.utils import autoreload
+from django.conf import settings
+from watchdog.observers import Observer
+from watchdog.tricks import AutoRestartTrick
 
 
 class Command(BaseCommand):
     help = 'Start celery workers. Autoreload when file changed.'
 
+    start_celery_cmd = 'celery -A LazyPipeline worker -l INFO'
+
     def handle(self, *args, **kwargs):
-        autoreload.main(self._restart_celery_worker)
+        self.stdout.write(self.style.WARNING(
+            '[%s] %s' % (self._now, 'starting celery workers by watchdog...')))
+
+        os.chdir(settings.BASE_DIR)
+
+        handler = AutoRestartTrick(
+                    command=shlex.split(self.start_celery_cmd),
+                    patterns=['*.py'])
+        handler.start()     # start celery
+
+        ob = Observer()
+        ob.schedule(handler, settings.BASE_DIR, recursive=True)
+        ob.start()
+
+        try:
+            while True:
+                time.sleep(3)
+        except KeyboardInterrupt:
+            self.stdout.write(self.style.SUCCESS(
+                '[%s] %s' % (self._now, 'stopping celery workers...')))
+            ob.stop()
+
+        ob.join()
+        handler.stop()
 
     @property
     def _now(self):
         return datetime.now().strftime('%B %d, %Y - %X')
-
-    def _restart_celery_worker(self):
-        txt = '[%s] %s' % (self._now, 'stopping celery workers...')
-        self.stdout.write(self.style.WARNING(txt))
-        self._run_shell_cmd('pkill celery')
-
-        txt = '[%s] %s' % (self._now, 'starting celery workers...')
-        self.stdout.write(self.style.SUCCESS(txt))
-        self._run_shell_cmd('celery -A LazyPipeline worker -l INFO')
-
-    @staticmethod
-    def _run_shell_cmd(cmd):
-        subprocess.call(shlex.split(cmd))
