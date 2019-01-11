@@ -1,0 +1,19 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+verify_ssl = true
+
+[dev-packages]
+ipython = "*"
+
+[packages]
+django = "*"
+celery = "*"
+django-celery-beat = "*"
+django-redis = "*"
+psycopg2 = "*"
+psycopg2-binary = "*"
+watchdog = "*"
+
+[requires]
+python_version = "3.6"
