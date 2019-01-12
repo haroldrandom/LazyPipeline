@@ -1,4 +1,4 @@
-import uuid
+import json
 from datetime import timedelta
 
 from django_redis import get_redis_connection
@@ -9,6 +9,11 @@ from LazyPipeline import celery_app
 
 
 logger = get_task_logger(__name__)
+
+
+class MessageType:
+    DATA = 'DATA'
+    CTRL = 'CONTROL'
 
 
 class BaseTask(celery_app.Task):
@@ -45,58 +50,110 @@ class WorkerBaseTask(BaseTask):
     ignore_result = True
     retry = False
     eta = timedelta(seconds=4)
-    expires = 3600
     soft_time_limit = 3600
     time_limit = soft_time_limit + 5
+    expires = soft_time_limit
 
     def config(self, node):
-        # parse node config to fill up self.upstreams
-        self.upstreams = []
+        self.upstreams = node.get('upstreams') or []
 
-        # parse node config to fill up self.downstreams
-        self.downstreams = []
+        self.downstreams = node.get('downstreams') or []
 
-        self.my_name = str(uuid.uuid4())
+        self.node_id = node['node_id']
 
-        self.finished_flag_cnt = 0
-        self.timeout_flag_cnt = 0
+        self.finished_up_cnt = 0
 
-        # hold a connection to upstream message queue for reading
-        if not hasattr(self, '_input_queue_conn'):
-            self._input_queue_conn = get_redis_connection('LazyPipeline')
+        self.timeout_up_cnt = 0
 
-        self.configed = False
+        # set a connection to upstream message queue for reading
+        if not hasattr(self, '_mq_conn'):
+            self._mq_conn = get_redis_connection('LazyPipeline')
+
+        self.configured = True
+
+    def _recv_message(self):
+        if not hasattr(self, 'configured') or not self.configured:
+            raise Exception("Invoke config() first")
+
+        msg = self._mq_conn.brpop(self.node_id, timeout=self.expires)
+        msg = json.loads(msg[1])    # msg is tuple(node_id, message)
+
+        while not self._validate_message(msg):
+            logger.warn('received invalid msg: {0}'.format(msg))
+            msg = self._mq_conn.brpop(self.node_id, timeout=self.expires)
+
+        return msg
+
+    def _pack_message(self, message_body,
+                      type_=MessageType.DATA,
+                      is_finished=False, is_timeout=False):
+        c = {
+            'sender': self.node_id,
+            'data': message_body,
+            'type': type_,
+            'status': {'is_finished': is_finished, 'is_timeout': is_timeout}
+        }
+        return json.dumps(c)
+
+    def _send_message(self, downstream, message):
+        if not hasattr(self, 'configured') or not self.configured:
+            raise Exception("Invoke config() first")
+
+        self._mq_conn.lpush(downstream, message)
+        self._mq_conn.expire(downstream, self.expires)
+
+    def pull_data(self):
+        raise NotImplementedError("Not implemented yet")
+
+    def push_data(self):
+        raise NotImplementedError("Not implemented yet")
+
+    def send_timeout_message(self):
+        for down in self.downstreams:
+            msg = self._pack_message(
+                [], MessageType.CTRL, is_finished=True, is_timeout=True)
+            self._send_message(down, msg)
+
+    def send_finished_message(self):
+        for down in self.downstreams:
+            msg = self._pack_message(
+                [], MessageType.CTRL, is_finished=True, is_timeout=False)
+            self._send_message(down, msg)
 
     @staticmethod
-    def valid_msg(msg):
+    def _validate_message(msg):
         try:
             if (
                 (not msg) or
-                (not hasattr(msg, 'tag')) or
-                (not hasattr(msg, 'status')) or
-                (not hasattr(msg, 'ttye'))
+                ('sender' not in msg) or ('data' not in msg) or
+                ('type' not in msg) or ('status' not in msg)
             ):
-                raise
+                raise Exception('invalid message')
 
+            # check existence
             msg['status']['is_finished'], msg['status']['is_timeout']
-        except Exception:
+        except Exception as e:
+            logger.warn(e)
             logger.info('received invalid message %s' % str(msg))
             return False
         return True
 
-    def get_message(self):
-        print('polling data from queue: {0}'.format(self.my_name))
 
-        msg = self._input_queue_conn.brpop(self.my_name, timeout=10)
+class MessageEmitterWorker(WorkerBaseTask):
+    """ """
 
-        while not self.valid_msg(msg):
-            print('receive msg: {0}'.format(msg))
-            msg = self._input_queue_conn.brpop(self.my_name, timeout=10)
+    def config(self, node_conf):
+        super(MessageEmitterWorker, self).config(node_conf)
 
-        return msg
+    def pull_data(self):
+        """ Invoke and get nothing """
+        pass
 
-    def pull_data_from_upstream(self):
-        raise NotImplementedError("this method hasn't been implemented")
+    def push_data(self, message_body):
+        msg = self._pack_message(message_body)
+
+        for down in self.downstreams:
+            self._send_message(down, msg)
 
 
 class MultiUpstreamWorkerTask(WorkerBaseTask):
@@ -109,38 +166,67 @@ class MultiUpstreamWorkerTask(WorkerBaseTask):
 
         self.upstream_data = {}
         for up in self.upstreams:
-            self.upstream_data[up] = {}
+            self.upstream_data[up] = {'data': []}
 
-        self.configed = True
-
-    def pull_data_from_upstream(self):
+    def pull_data(self):
         """ Invoked once and return all data from upstreams """
 
-        if not hasattr(self, 'configed') or not self.configed:
-            raise Exception("Invoke config() first")
-
         while True:
-            self.get_message()
+            msg = self._recv_message()
+
+            if msg['sender'] in self.upstreams:
+                up = msg['sender']
+                self.upstream_data[up]['data'].append(msg['data'])
+
+                if msg['status']['is_finished'] is True:
+                    self.finished_up_cnt += 1
+                if msg['status']['is_finished'] is True:
+                    self.timeout_up_cnt += 1
+
+            complete_cnt = self.finished_up_cnt + self.timeout_up_cnt
+            if complete_cnt >= len(self.upstreams):
+                return self.upstream_data
 
 
 def run_job(base=ControllerBaseTask):
     pass
 
 
-@celery_app.task(base=MultiUpstreamWorkerTask)
-def run_script(worker_conf):
-    self = run_script
-
-    worker_conf = {}
+@celery_app.task(base=MessageEmitterWorker)
+def run_message_emitter_worker(conf):
+    self = run_message_emitter_worker
 
     try:
-        self.config(worker_conf)
+        self.config(conf)
     except Exception:
         return
 
     try:
-        self.pull_data_from_upstream()
+        for i in range(5):
+            self.push_data([i])
+    except SoftTimeLimitExceeded:
+        logger.error(self.node_id + ' Timeout !')
+        self.send_timeout_message()
+    else:
+        logger.info(self.node_id + ' task finished')
+        self.send_finished_message()
+
+
+@celery_app.task(base=MultiUpstreamWorkerTask)
+def run_multi_upstream_worker(conf):
+    self = run_multi_upstream_worker
+
+    try:
+        self.config(conf)
+    except Exception:
+        return
+
+    try:
+        msg = self.pull_data()
+        logger.info(msg)
     except SoftTimeLimitExceeded:
         logger.error(self.name + ' Timeout !')
+        self.send_timeout_message()
     finally:
         logger.info(self.name + ' task finished')
+        self.send_finished_message()
