@@ -12,8 +12,8 @@ celery = "*"
 django-celery-beat = "*"
 django-redis = "*"
 psycopg2 = "*"
-psycopg2-binary = "*"
 watchdog = "*"
+psycopg2-binary = "*"
 
 [requires]
 python_version = "3.6"
