@@ -48,7 +48,7 @@ class WorkerBaseTask(BaseTask):
     eta = timedelta(seconds=4)
     soft_time_limit = 3600
     time_limit = soft_time_limit + 5
-    expires = soft_time_limit
+    expires = 300
 
     def config(self, node):
         self.upstreams = frozenset(node.get('upstreams')) or set()
