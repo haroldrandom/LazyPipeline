@@ -3,7 +3,7 @@ from celery.exceptions import SoftTimeLimitExceeded
 
 from LazyPipeline import celery_app
 from dispatcher.tasks.base import MessageEmitterWorker
-from dispatcher.tasks.base import BatchDataWorkerTask
+from dispatcher.tasks.base import BatchDataReceiverWorker
 
 
 logger = get_task_logger(__name__)
@@ -29,7 +29,7 @@ def run_message_emitter_worker(conf):
         self.send_finished_message()
 
 
-@celery_app.task(base=BatchDataWorkerTask)
+@celery_app.task(base=BatchDataReceiverWorker)
 def run_batch_data_worker(conf):
     self = run_batch_data_worker
 

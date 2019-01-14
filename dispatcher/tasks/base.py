@@ -142,7 +142,7 @@ class MessageEmitterWorker(WorkerBaseTask):
         super(MessageEmitterWorker, self).config(node_conf)
 
     def pull_data(self):
-        """ Invoke and get nothing """
+        """ Invoke and get nothing."""
         pass
 
     def push_data(self, message_body):
@@ -151,9 +151,10 @@ class MessageEmitterWorker(WorkerBaseTask):
         for down in self.downstreams:
             self._send_message(down, msg)
 
-class BatchDataWorkerTask(WorkerBaseTask):
-    """ Worker which can receive data from multiple uptreams
-    in the same time. Could be useful if you want ot join/merge
+
+class BatchDataReceiverWorker(WorkerBaseTask):
+    """ Worker that can receive data from uptream(s) in the same time.
+    Could be useful if you want ot join/merge.
     """
 
     def config(self, node_conf):
@@ -164,7 +165,7 @@ class BatchDataWorkerTask(WorkerBaseTask):
             self.upstream_data[up] = {'data': []}
 
     def pull_data(self):
-        """ Invoked once and return all data from upstreams """
+        """ Invoke once and return all data from upstreams."""
 
         while True:
             msg = self._recv_message()
@@ -185,3 +186,16 @@ class BatchDataWorkerTask(WorkerBaseTask):
                     return self.upstream_data
             else:
                 self.upstream_data[up]['data'].append(msg['data'])
+
+
+class StreamDataReceiverWorker(WorkerBaseTask):
+    """ Worker that receive one line of data from upstream(s) at a time.
+    Could be useful if you want to stream processing.
+    """
+
+    def config(self, node_conf):
+        super().config(node_conf)
+
+    def pull_data(self):
+        """ Invoke once and return one line of data at a time."""
+        pass
