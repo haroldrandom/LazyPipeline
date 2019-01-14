@@ -65,10 +65,10 @@ class WorkerBaseTask(BaseTask):
         if not hasattr(self, '_mq_conn'):
             self._mq_conn = get_redis_connection('LazyPipeline')
 
-        self.configured = True
+        self._configured = True
 
     def _recv_message(self):
-        if not hasattr(self, 'configured') or not self.configured:
+        if not hasattr(self, '_configured') or not self._configured:
             raise Exception("Invoke config() first")
 
         msg = self._mq_conn.brpop(self.node_id, timeout=self.expires)
@@ -92,7 +92,7 @@ class WorkerBaseTask(BaseTask):
         return json.dumps(c)
 
     def _send_message(self, downstream, message):
-        if not hasattr(self, 'configured') or not self.configured:
+        if not hasattr(self, '_configured') or not self._configured:
             raise Exception("Invoke config() first")
 
         self._mq_conn.lpush(downstream, message)
@@ -157,8 +157,8 @@ class MultiUpstreamWorkerTask(WorkerBaseTask):
     in the same time. Could be useful if you want ot join/merge
     """
 
-    def config(self, node):
-        super(MultiUpstreamWorkerTask, self).config(node)
+    def config(self, node_conf):
+        super(MultiUpstreamWorkerTask, self).config(node_conf)
 
         self.upstream_data = {}
         for up in self.upstreams:
