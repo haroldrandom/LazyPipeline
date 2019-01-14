@@ -2,8 +2,8 @@ from celery.utils.log import get_task_logger
 from celery.exceptions import SoftTimeLimitExceeded
 
 from LazyPipeline import celery_app
-from dispatcher.tasks.base import MessageEmitterWorker
-from dispatcher.tasks.base import BatchDataReceiverWorker
+from engine.tasks.base import MessageEmitterWorker
+from engine.tasks.base import BatchDataReceiverWorker
 
 
 logger = get_task_logger(__name__)

@@ -1,8 +1,8 @@
 import uuid
 from django.test import TestCase
 
-from dispatcher.tasks import run_message_emitter_worker
-from dispatcher.tasks import run_batch_data_worker
+from engine.tasks import run_message_emitter_worker
+from engine.tasks import run_batch_data_worker
 
 
 class MultiUpstreamWorkerTest(TestCase):

@@ -5,8 +5,8 @@ from django_redis import get_redis_connection
 from celery.utils.log import get_task_logger
 
 from LazyPipeline import celery_app
-from dispatcher.tasks.message import MessageType
-from dispatcher.tasks.utils import UniqueKeySerialCounter
+from engine.tasks.message import MessageType
+from engine.tasks.utils import UniqueKeySerialCounter
 
 
 logger = get_task_logger(__name__)
