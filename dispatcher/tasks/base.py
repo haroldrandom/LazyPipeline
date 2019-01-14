@@ -6,6 +6,7 @@ from celery.utils.log import get_task_logger
 
 from LazyPipeline import celery_app
 from dispatcher.tasks.message import MessageType
+from dispatcher.tasks.utils import UniqueKeySerialCounter
 
 
 logger = get_task_logger(__name__)
@@ -56,9 +57,9 @@ class WorkerBaseTask(BaseTask):
 
         self.node_id = node['node_id']
 
-        self.finished_up_cnt = 0
+        self.finished_ups = UniqueKeySerialCounter(allowed_keys=self.upstreams)
 
-        self.timeout_up_cnt = 0
+        self.timeout_ups = UniqueKeySerialCounter(allowed_keys=self.upstreams)
 
         # set a connection to upstream message queue for reading
         if not hasattr(self, '_mq_conn'):
@@ -169,18 +170,18 @@ class MultiUpstreamWorkerTask(WorkerBaseTask):
         while True:
             msg = self._recv_message()
 
-            if msg['sender'] in self.upstreams:
-                up = msg['sender']
-                self.upstream_data[up]['data'].append(msg['data'])
+            if msg['sender'] not in self.upstreams:
+                continue
 
-                if msg['status']['is_finished'] is True:
-                    self.finished_up_cnt += 1
-                if msg['status']['is_finished'] is True:
-                    self.timeout_up_cnt += 1
+            up = msg['sender']
 
-            complete_cnt = self.finished_up_cnt + self.timeout_up_cnt
+            if msg['status']['is_finished'] is True:
+                self.finished_ups[up] += 1
+            if msg['status']['is_finished'] is True:
+                self.timeout_ups[up] += 1
+
+            complete_cnt = len(self.finished_ups) + len(self.timeout_ups)
             if complete_cnt >= len(self.upstreams):
                 return self.upstream_data
-
-
-
+            else:
+                self.upstream_data[up]['data'].append(msg['data'])

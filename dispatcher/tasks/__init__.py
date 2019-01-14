@@ -20,7 +20,7 @@ def run_message_emitter_worker(conf):
 
     try:
         for i in range(5):
-            self.push_data([i])
+            self.push_data(i)
     except SoftTimeLimitExceeded:
         logger.error(self.node_id + ' Timeout !')
         self.send_timeout_message()
