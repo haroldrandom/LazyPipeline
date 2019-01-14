@@ -174,13 +174,14 @@ class BatchDataWorkerTask(WorkerBaseTask):
 
             up = msg['sender']
 
-            if msg['status']['is_finished'] is True:
-                self.finished_ups[up] += 1
-            if msg['status']['is_finished'] is True:
-                self.timeout_ups[up] += 1
+            if msg['type'] == MessageType.CTRL:
+                if msg['status']['is_finished'] is True:
+                    self.finished_ups[up] += 1
+                if msg['status']['is_timeout'] is True:
+                    self.timeout_ups[up] += 1
 
-            complete_cnt = len(self.finished_ups) + len(self.timeout_ups)
-            if complete_cnt >= len(self.upstreams):
-                return self.upstream_data
+                complete_cnt = len(self.finished_ups) + len(self.timeout_ups)
+                if complete_cnt >= len(self.upstreams):
+                    return self.upstream_data
             else:
                 self.upstream_data[up]['data'].append(msg['data'])

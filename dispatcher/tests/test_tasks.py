@@ -12,18 +12,18 @@ class MultiUpstreamWorkerTest(TestCase):
     def test1(self):
         """ Test with only one upstream"""
 
-        job_id = str(uuid.uuid1())
+        job_id = str(uuid.uuid4())
 
         w_conf_1 = {
             'job_id': job_id,
-            'node_id': str(uuid.uuid1()),
+            'node_id': str(uuid.uuid4()),
             'upstreams': [],
             'downstreams': []
         }
 
         w_conf_2 = {
             'job_id': job_id,
-            'node_id': str(uuid.uuid1()),
+            'node_id': str(uuid.uuid4()),
             'upstreams': [],
             'downstreams': [],
         }
@@ -37,15 +37,15 @@ class MultiUpstreamWorkerTest(TestCase):
     def test2(self):
         """ Test with two upstreams"""
 
-        job_id = str(uuid.uuid1())
+        job_id = str(uuid.uuid4())
 
-        w_conf_1 = {'job_id': job_id, 'node_id': str(uuid.uuid1()),
+        w_conf_1 = {'job_id': job_id, 'node_id': str(uuid.uuid4()),
                     'upstreams': [],
                     'downstreams': []}
-        w_conf_2 = {'job_id': job_id, 'node_id': str(uuid.uuid1()),
+        w_conf_2 = {'job_id': job_id, 'node_id': str(uuid.uuid4()),
                     'upstreams': [],
                     'downstreams': []}
-        w_conf_3 = {'job_id': job_id, 'node_id': str(uuid.uuid1()),
+        w_conf_3 = {'job_id': job_id, 'node_id': str(uuid.uuid4()),
                     'upstreams': [],
                     'downstreams': []}
 
@@ -54,6 +54,10 @@ class MultiUpstreamWorkerTest(TestCase):
 
         w_conf_3['upstreams'].append(w_conf_1['node_id'])
         w_conf_3['upstreams'].append(w_conf_2['node_id'])
+
+        print(w_conf_1)
+        print(w_conf_2)
+        print(w_conf_3)
 
         run_message_emitter_worker.apply_async(args=[w_conf_1])
         run_message_emitter_worker.apply_async(args=[w_conf_2])
