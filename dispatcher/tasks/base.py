@@ -151,14 +151,13 @@ class MessageEmitterWorker(WorkerBaseTask):
         for down in self.downstreams:
             self._send_message(down, msg)
 
-
-class MultiUpstreamWorkerTask(WorkerBaseTask):
+class BatchDataWorkerTask(WorkerBaseTask):
     """ Worker which can receive data from multiple uptreams
     in the same time. Could be useful if you want ot join/merge
     """
 
     def config(self, node_conf):
-        super(MultiUpstreamWorkerTask, self).config(node_conf)
+        super().config(node_conf)
 
         self.upstream_data = {}
         for up in self.upstreams:

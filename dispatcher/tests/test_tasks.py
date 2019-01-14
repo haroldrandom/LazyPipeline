@@ -2,7 +2,7 @@ import uuid
 from django.test import TestCase
 
 from dispatcher.tasks import run_message_emitter_worker
-from dispatcher.tasks import run_multi_upstream_worker
+from dispatcher.tasks import run_batch_data_worker
 
 
 class MultiUpstreamWorkerTest(TestCase):
@@ -29,11 +29,10 @@ class MultiUpstreamWorkerTest(TestCase):
         }
 
         w_conf_1['downstreams'].append(w_conf_2['node_id'])
-
         w_conf_2['upstreams'].append(w_conf_1['node_id'])
 
         run_message_emitter_worker.apply_async(args=[w_conf_1])
-        run_multi_upstream_worker.apply_async(args=[w_conf_2])
+        run_batch_data_worker.apply_async(args=[w_conf_2])
 
     def test2(self):
         """ Test with two upstreams"""
@@ -58,4 +57,4 @@ class MultiUpstreamWorkerTest(TestCase):
 
         run_message_emitter_worker.apply_async(args=[w_conf_1])
         run_message_emitter_worker.apply_async(args=[w_conf_2])
-        run_multi_upstream_worker.apply_async(args=[w_conf_3])
+        run_batch_data_worker.apply_async(args=[w_conf_3])

@@ -3,7 +3,7 @@ from celery.exceptions import SoftTimeLimitExceeded
 
 from LazyPipeline import celery_app
 from dispatcher.tasks.base import MessageEmitterWorker
-from dispatcher.tasks.base import MultiUpstreamWorkerTask
+from dispatcher.tasks.base import BatchDataWorkerTask
 
 
 logger = get_task_logger(__name__)
@@ -29,9 +29,9 @@ def run_message_emitter_worker(conf):
         self.send_finished_message()
 
 
-@celery_app.task(base=MultiUpstreamWorkerTask)
-def run_multi_upstream_worker(conf):
-    self = run_multi_upstream_worker
+@celery_app.task(base=BatchDataWorkerTask)
+def run_batch_data_worker(conf):
+    self = run_batch_data_worker
 
     try:
         self.config(conf)
