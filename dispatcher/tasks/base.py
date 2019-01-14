@@ -3,17 +3,12 @@ from datetime import timedelta
 
 from django_redis import get_redis_connection
 from celery.utils.log import get_task_logger
-from celery.exceptions import SoftTimeLimitExceeded
 
 from LazyPipeline import celery_app
+from dispatcher.tasks.message import MessageType
 
 
 logger = get_task_logger(__name__)
-
-
-class MessageType:
-    DATA = 'DATA'
-    CTRL = 'CONTROL'
 
 
 class BaseTask(celery_app.Task):
@@ -55,9 +50,9 @@ class WorkerBaseTask(BaseTask):
     expires = soft_time_limit
 
     def config(self, node):
-        self.upstreams = node.get('upstreams') or []
+        self.upstreams = frozenset(node.get('upstreams')) or set()
 
-        self.downstreams = node.get('downstreams') or []
+        self.downstreams = frozenset(node.get('downstreams')) or set()
 
         self.node_id = node['node_id']
 
@@ -188,45 +183,4 @@ class MultiUpstreamWorkerTask(WorkerBaseTask):
                 return self.upstream_data
 
 
-def run_job(base=ControllerBaseTask):
-    pass
 
-
-@celery_app.task(base=MessageEmitterWorker)
-def run_message_emitter_worker(conf):
-    self = run_message_emitter_worker
-
-    try:
-        self.config(conf)
-    except Exception:
-        return
-
-    try:
-        for i in range(5):
-            self.push_data([i])
-    except SoftTimeLimitExceeded:
-        logger.error(self.node_id + ' Timeout !')
-        self.send_timeout_message()
-    else:
-        logger.info(self.node_id + ' task finished')
-        self.send_finished_message()
-
-
-@celery_app.task(base=MultiUpstreamWorkerTask)
-def run_multi_upstream_worker(conf):
-    self = run_multi_upstream_worker
-
-    try:
-        self.config(conf)
-    except Exception:
-        return
-
-    try:
-        msg = self.pull_data()
-        logger.info(msg)
-    except SoftTimeLimitExceeded:
-        logger.error(self.name + ' Timeout !')
-        self.send_timeout_message()
-    finally:
-        logger.info(self.name + ' task finished')
-        self.send_finished_message()
