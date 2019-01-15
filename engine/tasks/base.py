@@ -21,7 +21,8 @@ class BaseTask(celery_app.Task):
 
 
 class ControllerBaseTask(BaseTask):
-    """ Parse config file and dispatch them to worker"""
+    """ Parse config file and dispatch them to worker
+    """
 
     ignore_result = True
     retry = False
@@ -41,7 +42,8 @@ class ControllerBaseTask(BaseTask):
 
 
 class WorkerBaseTask(BaseTask):
-    """ Parse config and run script"""
+    """ Parse config and run script
+    """
 
     ignore_result = True
     retry = False
@@ -136,13 +138,13 @@ class WorkerBaseTask(BaseTask):
 
 
 class MessageEmitterWorker(WorkerBaseTask):
-    """ """
 
     def config(self, node_conf):
         super(MessageEmitterWorker, self).config(node_conf)
 
     def pull_data(self):
-        """ Invoke and get nothing."""
+        """ Invoke and get nothing.
+        """
         pass
 
     def push_data(self, message_body):
@@ -154,7 +156,7 @@ class MessageEmitterWorker(WorkerBaseTask):
 
 class BatchDataReceiverWorker(WorkerBaseTask):
     """ Worker that can receive data from uptream(s) in the same time.
-    Could be useful if you want ot join/merge.
+    Could be useful if you want ot join/merge/convergence.
     """
 
     def config(self, node_conf):
@@ -165,7 +167,8 @@ class BatchDataReceiverWorker(WorkerBaseTask):
             self.upstream_data[up] = {'data': []}
 
     def pull_data(self):
-        """ Invoke once and return all data from upstreams."""
+        """ Invoke once and return all data from upstreams.
+        """
 
         while True:
             msg = self._recv_message()
@@ -197,5 +200,6 @@ class StreamDataReceiverWorker(WorkerBaseTask):
         super().config(node_conf)
 
     def pull_data(self):
-        """ Invoke once and return one line of data at a time."""
+        """ Invoke once and return one line of data at a time.
+        """
         pass
