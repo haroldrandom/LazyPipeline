@@ -27,4 +27,7 @@ class UniqueKeySerialCounter(KeyLimitedDict):
         super().__init__(allowed_keys=allowed_keys)
 
     def __getitem__(self, key):
-        return self._serial_starter if key not in self else super().__getitem__(key)
+        if key not in self:
+            return self._serial_starter
+        else:
+            return super().__getitem__(key)
