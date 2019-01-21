@@ -22,23 +22,23 @@ TOOD
 ## Development Roadmap
 
 - LazyPipeline Engine
-    - [] Pipeline your scripts and run them, save them, edit them
-    - [] Pipeline with schedulablity
+    - [ ] Pipeline your scripts and run them, save them, edit them
+    - [ ] Pipeline with schedulablity
     - [x] BatchDataReceiverWorker, StreamDataReceiverWorker, ConvergenceDataWorker at your service
-    - [] Scripts output and log view
-    - [] Pipeline and every node's scripts histpry
-    - [] Human friendly Web UI
-    - [] Dockerization
+    - [ ] Scripts output and log view
+    - [ ] Pipeline and every node's scripts histpry
+    - [ ] Human friendly Web UI
+    - [ ] Dockerization
 - LazyPipeline ETL
-    - [] Extractor
-    - [] Join
-    - [] Convergence
-    - [] Common used transforerms
+    - [ ] Extractor
+    - [ ] Join
+    - [ ] Convergence
+    - [ ] Common used transforerms
 - LazyPipeline Monitor
-    - [] Exception view and Alert
+    - [ ] Exception view and Alert
 - LazyPileline Admin
-    - [] Role management
-    - [] Permission
+    - [ ] Role management
+    - [ ] Permission
 
 ## Acknowledgments
 
