@@ -21,8 +21,24 @@ TOOD
 
 ## Development Roadmap
 
-TODO
-
+- LazyPipeline Engine
+    * Pipeline your scripts and run them, save them, edit them
+    * Pipeline with schedulablity
+    * BatchDataReceiverWorker, StreamDataReceiverWorker, ConvergenceDataWorker at your service
+    * Human friendly Web UI
+    * Scripts output and log view
+    * Pipeline and every node's scripts histpry
+    * Dockerization
+- LazyPipeline ETL
+    * Extractor
+    * Join
+    * Convergence
+    * Common used transforerms
+- LazyPipeline Monitor
+    * Exception view and Alert
+- LazyPileline Admin
+    * Role management
+    * Permission
 
 ## Acknowledgments
 
