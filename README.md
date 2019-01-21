@@ -33,7 +33,7 @@ TOOD
     - [ ] Extractor
     - [ ] Join
     - [ ] Convergence
-    - [ ] Common used transforerms
+    - [ ] Common used transformers
 - LazyPipeline Monitor
     - [ ] Exception view and Alert
 - LazyPileline Admin
