@@ -22,13 +22,16 @@ TOOD
 ## Development Roadmap
 
 - LazyPipeline Engine
-    - [ ] Pipeline your scripts and run them, save them, edit them
     - [ ] Pipeline with schedulablity
-    - [x] BatchDataWorker, StreamDataWorker, ConvergenceDataWorker at your service
+    - [x] Pipeline with BatchDataWorker, StreamDataWorker, ConvergenceDataWorker
+    - [ ] Test demo
+    - [ ] Dockerization
+- LazyPipeline Core
+    - [ ] Pipeline your scripts and run them, save them, edit them
     - [ ] Scripts output and log view
     - [ ] Pipeline and every node's scripts histpry
     - [ ] Human friendly Web UI
-    - [ ] Dockerization
+    - [ ] Multiple language and script environment support
 - LazyPipeline ETL
     - [ ] Extractor
     - [ ] Join
