@@ -154,7 +154,7 @@ class MessageEmitterWorker(WorkerBaseTask):
             self._send_message(down, msg)
 
 
-class BatchDataReceiverWorker(WorkerBaseTask):
+class BatchDataWorker(WorkerBaseTask):
     """ Worker that can receive data from uptream(s) in the same time.
     Could be useful if you want ot join/merge/convergence.
     """
@@ -191,7 +191,7 @@ class BatchDataReceiverWorker(WorkerBaseTask):
                 self.upstream_data[up]['data'].append(msg['data'])
 
 
-class StreamDataReceiverWorker(WorkerBaseTask):
+class StreamDataWorker(WorkerBaseTask):
     """ Worker that receive one line of data from upstream(s) at a time.
     Could be useful if you want to stream processing.
     """

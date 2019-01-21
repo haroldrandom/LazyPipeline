@@ -24,7 +24,7 @@ TOOD
 - LazyPipeline Engine
     - [ ] Pipeline your scripts and run them, save them, edit them
     - [ ] Pipeline with schedulablity
-    - [x] BatchDataReceiverWorker, StreamDataReceiverWorker, ConvergenceDataWorker at your service
+    - [x] BatchDataWorker, StreamDataWorker, ConvergenceDataWorker at your service
     - [ ] Scripts output and log view
     - [ ] Pipeline and every node's scripts histpry
     - [ ] Human friendly Web UI
