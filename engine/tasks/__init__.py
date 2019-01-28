@@ -1,3 +1,7 @@
+import os
+import copy
+import subprocess
+
 from celery.utils.log import get_task_logger
 from celery.exceptions import SoftTimeLimitExceeded
 
@@ -41,13 +45,20 @@ def run_batch_data_worker(conf):
         return
 
     try:
-        msg = self.pull_data()
-        logger.info(msg)
+        messages = self.pull_data()
+
+        new_env = copy.deepcopy(dict(os.environ))
+        for msg in messages:
+            new_env
+
+        # subprocess.check_output(['python'], stderr=subprocess.STDOUT, env=new_env)
+    except subprocess.CalledProcessError:
+        logger.error('%s - %s' % (self.name, 'RETURN CODE ERROR'))
     except SoftTimeLimitExceeded:
-        logger.error('%s - %s' % (self.name, ' TIMEOUT'))
+        logger.error('%s - %s' % (self.name, 'TIMEOUT'))
         self.send_timeout_message()
     finally:
-        logger.info('%s - %s' % (self.name, ' TASK FINISHED'))
+        logger.info('%s - %s' % (self.name, 'TASK FINISHED'))
         self.send_finished_message()
 
 

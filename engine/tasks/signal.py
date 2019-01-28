@@ -1,6 +1,10 @@
-class FinishException(Exception):
+class PipelineSignal(Exception):
+    """ """
+
+
+class FinishSignal(PipelineSignal):
     """ Indicate task is finished """
 
 
-class TimeoutException(Exception):
+class TimeoutSignal(PipelineSignal):
     """ Indicate task is timeout """

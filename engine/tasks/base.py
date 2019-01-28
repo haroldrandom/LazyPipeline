@@ -7,7 +7,7 @@ from celery.utils.log import get_task_logger
 
 from LazyPipeline import celery_app
 from engine.tasks.message import MessageType
-from engine.tasks.signal import FinishException
+from engine.tasks.signal import FinishSignal
 from engine.tasks.utils import UniqueKeySerialCounter
 
 
@@ -229,7 +229,7 @@ class StreamDataWorker(WorkerBaseTask):
 
             complete_cnt = len(self.finished_ups) + len(self.timeout_ups)
             if complete_cnt >= len(self.upstreams):
-                raise FinishException()  # raise finished signal
+                raise FinishSignal()  # raise finished signal
 
             useable_ups = list(filter(lambda up: len(self.upstreams_data[up]['data']) > 0,
                                       self.upstreams_data))
