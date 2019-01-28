@@ -4,6 +4,7 @@ from celery.exceptions import SoftTimeLimitExceeded
 from LazyPipeline import celery_app
 from engine.tasks.base import MessageEmitterWorker
 from engine.tasks.base import BatchDataWorker
+from engine.tasks.base import StreamDataWorker
 
 
 logger = get_task_logger(__name__)
@@ -36,14 +37,37 @@ def run_batch_data_worker(conf):
     try:
         self.config(conf)
     except Exception:
+        self.send_finished_message()
         return
 
     try:
         msg = self.pull_data()
         logger.info(msg)
     except SoftTimeLimitExceeded:
-        logger.error(self.name + ' Timeout !')
+        logger.error('%s - %s' % (self.name, ' TIMEOUT'))
         self.send_timeout_message()
     finally:
-        logger.info(self.name + ' task finished')
+        logger.info('%s - %s' % (self.name, ' TASK FINISHED'))
+        self.send_finished_message()
+
+
+@celery_app.task(base=StreamDataWorker)
+def run_stream_data_worker(conf):
+    self = run_stream_data_worker
+
+    try:
+        self.config(conf)
+    except Exception:
+        logger.error('%s - %s' % (self.name, 'CONFIG ERROR'))
+        self.send_finished_message()
+        return
+
+    try:
+        while True:
+            msg = self.pull_data()
+    except SoftTimeLimitExceeded:
+        logger.error('%s - %s' % (self.name, ' TIMEOUT'))
+        self.send_timeout_message()
+    finally:
+        logger.info('%s - %s' % (self.name, ' TASK FINISHED'))
         self.send_finished_message()

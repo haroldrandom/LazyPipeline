@@ -1,11 +1,13 @@
 import json
 from datetime import timedelta
+from collections import deque
 
 from django_redis import get_redis_connection
 from celery.utils.log import get_task_logger
 
 from LazyPipeline import celery_app
 from engine.tasks.message import MessageType
+from engine.tasks.signal import FinishException
 from engine.tasks.utils import UniqueKeySerialCounter
 
 
@@ -118,8 +120,7 @@ class WorkerBaseTask(BaseTask):
                 [], MessageType.CTRL, is_finished=True, is_timeout=False)
             self._send_message(down, msg)
 
-    @staticmethod
-    def _validate_message(msg):
+    def _validate_message(self, msg):
         try:
             if (
                 (not msg) or
@@ -134,6 +135,14 @@ class WorkerBaseTask(BaseTask):
             logger.warn(e)
             logger.info('received invalid message %s' % str(msg))
             return False
+
+        try:
+            if msg['sender'] not in self.upstreams:
+                raise Exception('receive data from an uninvited sender')
+        except Exception as e:
+            logger.warn(e)
+            return False
+
         return True
 
 
@@ -155,7 +164,7 @@ class MessageEmitterWorker(WorkerBaseTask):
 
 
 class BatchDataWorker(WorkerBaseTask):
-    """ Worker that can receive data from uptream(s) in the same time.
+    """ Worker that can receive all data from uptream(s) in the same time.
     Could be useful if you want ot join/merge/convergence.
     """
 
@@ -172,9 +181,6 @@ class BatchDataWorker(WorkerBaseTask):
 
         while True:
             msg = self._recv_message()
-
-            if msg['sender'] not in self.upstreams:
-                continue
 
             up = msg['sender']
 
@@ -193,13 +199,58 @@ class BatchDataWorker(WorkerBaseTask):
 
 class StreamDataWorker(WorkerBaseTask):
     """ Worker that receive one line of data from upstream(s) at a time.
-    Could be useful if you want to stream processing.
+    Could be useful in stream processing.
     """
 
     def config(self, node_conf):
         super().config(node_conf)
 
+        self.upstream_data = {}
+        for up in self.upstreams:
+            self.upstream_data[up] = {'data': deque()}
+            self.ret_data[up] = {'data': []}
+
     def pull_data(self):
         """ Invoke once and return one line of data at a time.
+        raise Finished signal if all upstreams are finished
         """
+        while True:
+            msg = self._recv_message()
+
+            up = msg['sender']
+
+            if msg['type'] == MessageType.CTRL:
+                if msg['status']['is_finished'] is True:
+                    self.finished_ups[up] += 1
+                if msg['status']['is_timeout'] is True:
+                    self.timeout_ups[up] += 1
+            else:
+                self.upstream_data[up]['data'].append(msg)
+
+            complete_cnt = len(self.finished_ups) + len(self.timeout_ups)
+            if complete_cnt >= len(self.upstreams):
+                raise FinishException()  # raise finished signal
+
+            useable_ups = list(filter(lambda up: len(self.upstreams_data[up]['data']) > 0,
+                                      self.upstreams_data))
+            if len(useable_ups) + complete_cnt < len(self.upstreams):
+                continue
+
+            for up in useable_ups:
+                try:
+                    self.ret_data[up]['data'].append(self.upstream_data[up]['data'].popleft())
+                except Exception:
+                    self.ret_data[up]['data'] = []
+            return self.ret_data
+
+
+class ConvergenceStreamDataWorker(StreamDataWorker):
+    """ Worker that receive data from upstream(s) at a time.
+    Could be useful in common filter processing
+    """
+
+    def config(self, node_conf):
+        pass
+
+    def pull_data(self):
         pass

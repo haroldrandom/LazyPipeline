@@ -55,10 +55,6 @@ class MultiUpstreamWorkerTest(TestCase):
         w_conf_3['upstreams'].append(w_conf_1['node_id'])
         w_conf_3['upstreams'].append(w_conf_2['node_id'])
 
-        print(w_conf_1)
-        print(w_conf_2)
-        print(w_conf_3)
-
         run_message_emitter_worker.apply_async(args=[w_conf_1])
         run_message_emitter_worker.apply_async(args=[w_conf_2])
         run_batch_data_worker.apply_async(args=[w_conf_3])
