@@ -55,9 +55,9 @@ class WorkerBaseTask(BaseTask):
     expires = 300
 
     def config(self, node):
-        self.upstreams = frozenset(node.get('upstreams')) or set()
+        self.upstreams = node.get('upstreams') or []
 
-        self.downstreams = frozenset(node.get('downstreams')) or set()
+        self.downstreams = node.get('downstreams') or []
 
         self.node_id = node['node_id']
 
@@ -103,10 +103,10 @@ class WorkerBaseTask(BaseTask):
         self._mq_conn.expire(downstream, self.expires)
 
     def pull_data(self):
-        raise NotImplementedError("Not implemented yet")
+        raise NotImplementedError("Subcalss not implemented yet")
 
-    def push_data(self):
-        raise NotImplementedError("Not implemented yet")
+    def push_data(self, message_body):
+        raise NotImplementedError("Subclass not implemented yet")
 
     def send_timeout_message(self):
         for down in self.downstreams:
@@ -195,6 +195,12 @@ class BatchDataWorker(WorkerBaseTask):
                     return self.upstream_data
             else:
                 self.upstream_data[up]['data'].append(msg['data'])
+
+    def push_data(self, message_body):
+        msg = self._pack_message(message_body)
+
+        for down in self.downstreams:
+            self._send_message(down, msg)
 
 
 class StreamDataWorker(WorkerBaseTask):

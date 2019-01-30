@@ -1,4 +1,6 @@
 import os
+import shlex
+import json
 import copy
 import subprocess
 
@@ -27,10 +29,10 @@ def run_message_emitter_worker(conf):
         for i in range(5):
             self.push_data(i)
     except SoftTimeLimitExceeded:
-        logger.error(self.node_id + ' Timeout !')
+        logger.error('TASK [%s] [id=%s]- %s' % (self.name, self.node_id, 'TIMEOUT'))
         self.send_timeout_message()
-    else:
-        logger.info(self.node_id + ' task finished')
+    finally:
+        logger.info('TASK [%s] [id=%s] - %s' % (self.name, self.node_id, 'FINISHED'))
         self.send_finished_message()
 
 
@@ -47,18 +49,31 @@ def run_batch_data_worker(conf):
     try:
         messages = self.pull_data()
 
-        new_env = copy.deepcopy(dict(os.environ))
-        for msg in messages:
-            new_env
+        arg_seq = 1
 
-        # subprocess.check_output(['python'], stderr=subprocess.STDOUT, env=new_env)
+        new_env = copy.deepcopy(dict(os.environ))   # TODO env must be manicured
+
+        for sender, body in messages.items():
+            k = 'ARG_{0}'.format(arg_seq)
+            new_env[k] = json.dumps(body['data'])
+            arg_seq += 1
+
+        cmd = shlex.split('echo 123')
+        stdoutput = subprocess.check_output(
+            cmd, stderr=subprocess.STDOUT, env=new_env)
+        stdoutput = stdoutput.decode('utf-8')
+
+        self.push_data(stdoutput)
     except subprocess.CalledProcessError:
-        logger.error('%s - %s' % (self.name, 'RETURN CODE ERROR'))
+        logger.error('TASK [%s] [id=%s] %s' % (
+            self.name, self.node_id, 'RET_CODE ERROR'))
     except SoftTimeLimitExceeded:
-        logger.error('%s - %s' % (self.name, 'TIMEOUT'))
+        logger.error('TASK [%s] [id=%s] %s' % (
+            self.name, self.node_id, 'TIMEOUT'))
         self.send_timeout_message()
     finally:
-        logger.info('%s - %s' % (self.name, 'TASK FINISHED'))
+        logger.info('TASK [%s] [id=%s] %s' % (
+            self.name, self.node_id, 'FINISHED'))
         self.send_finished_message()
 
 
@@ -69,16 +84,16 @@ def run_stream_data_worker(conf):
     try:
         self.config(conf)
     except Exception:
-        logger.error('%s - %s' % (self.name, 'CONFIG ERROR'))
         self.send_finished_message()
         return
 
     try:
-        while True:
-            msg = self.pull_data()
+        # while True:
+        #     msg = self.pull_data()
+        pass
     except SoftTimeLimitExceeded:
-        logger.error('%s - %s' % (self.name, ' TIMEOUT'))
+        logger.error('TASK [%s] [id=%s]- %s' % (self.name, self.node_id, 'TIMEOUT'))
         self.send_timeout_message()
     finally:
-        logger.info('%s - %s' % (self.name, ' TASK FINISHED'))
+        logger.info('TASK [%s] [id=%s] - %s' % (self.name, self.node_id, 'FINISHED'))
         self.send_finished_message()
