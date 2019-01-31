@@ -29,10 +29,12 @@ def run_message_emitter_worker(conf):
         for i in range(5):
             self.push_data(i)
     except SoftTimeLimitExceeded:
-        logger.error('TASK [%s] [id=%s]- %s' % (self.name, self.node_id, 'TIMEOUT'))
+        logger.error('TASK [%s] [id=%s]- %s' % (
+            self.name, self.node_id, 'TIMEOUT'))
         self.send_timeout_message()
     finally:
-        logger.info('TASK [%s] [id=%s] - %s' % (self.name, self.node_id, 'FINISHED'))
+        logger.info('TASK [%s] [id=%s] - %s' % (
+            self.name, self.node_id, 'FINISHED'))
         self.send_finished_message()
 
 
@@ -49,14 +51,12 @@ def run_batch_data_worker(conf):
     try:
         messages = self.pull_data()
 
-        arg_seq = 1
+        # TODO env must be manicured
+        new_env = copy.deepcopy(dict(os.environ))
 
-        new_env = copy.deepcopy(dict(os.environ))   # TODO env must be manicured
-
-        for sender, body in messages.items():
-            k = 'ARG_{0}'.format(arg_seq)
-            new_env[k] = json.dumps(body['data'])
-            arg_seq += 1
+        for idx, body in enumerate(messages.items()):
+            k = 'ARG_{0}'.format(idx)
+            new_env[k] = json.dumps(body[1]['data'])
 
         cmd = shlex.split('echo 123')
         stdoutput = subprocess.check_output(
@@ -92,8 +92,10 @@ def run_stream_data_worker(conf):
         #     msg = self.pull_data()
         pass
     except SoftTimeLimitExceeded:
-        logger.error('TASK [%s] [id=%s]- %s' % (self.name, self.node_id, 'TIMEOUT'))
+        logger.error('TASK [%s] [id=%s]- %s' % (
+            self.name, self.node_id, 'TIMEOUT'))
         self.send_timeout_message()
     finally:
-        logger.info('TASK [%s] [id=%s] - %s' % (self.name, self.node_id, 'FINISHED'))
+        logger.info('TASK [%s] [id=%s] - %s' % (
+            self.name, self.node_id, 'FINISHED'))
         self.send_finished_message()
