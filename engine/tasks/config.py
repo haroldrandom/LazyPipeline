@@ -3,6 +3,11 @@ class WorkerConfig():
         self._job_id = job_id
         self._node_id = node_id
 
+        if not self._job_id:
+            raise AttributeError('job_id is must not be empty')
+        if not self._node_id:
+            raise AttributeError('node_id must not be empty')
+
         self._upstreams = []
         self._downstreams = []
 
@@ -24,18 +29,51 @@ class WorkerConfig():
 
     @property
     def to_dict(self):
-        return
+        c = {'job_id': self._job_id,
+             'node_id': self._node_id,
+             'upstreams': self._upstreams,
+             'downstreams': self._downstreams}
+        return c
 
-    def add_upstreams(self, up1, *ups):
-        self._upstreams.append(up1)
+    @staticmethod
+    def config_from_object(config):
+        if 'job_id' not in config:
+            raise AttributeError('key job_id must exist')
+        if 'node_id' not in config:
+            raise AttributeError('key node_id must exist')
 
-        if ups:
-            for up in ups:
-                self._upstreams.append(up)
+        wc = WorkerConfig(config.get('job_id'), config.get('node_id'))
 
-    def add_downstreams(self, down1, *downs):
-        self._downstreams.append(down1)
+        ups = config.get('upstreams') or []
+        wc.add_upstreams(ups)
 
-        if downs:
-            for down in downs:
-                self._downstreams.append(down)
+        dws = config.get('downstreams') or []
+        wc.add_downstreams(dws)
+
+        return wc
+
+    def add_upstream(self, up):
+        if isinstance(up, WorkerConfig):
+            self._upstreams.append(up.node_id)
+        elif isinstance(up, str):
+            self._upstreams.append(up)
+        else:
+            raise AttributeError(
+                'down must be either instance of WorkerConfig or str')
+
+    def add_upstreams(self, ups):
+        for up in ups:
+            self.add_upstream(up)
+
+    def add_downstream(self, down):
+        if isinstance(down, WorkerConfig):
+            self._downstreams.append(down.node_id)
+        elif isinstance(down, str):
+            self._downstreams.append(down)
+        else:
+            raise AttributeError(
+                'down must be either instance of WorkerConfig or str')
+
+    def add_downstreams(self, downs):
+        for down in downs:
+            self.add_downstream(down)

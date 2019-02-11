@@ -3,107 +3,108 @@ from django.test import TestCase
 
 from engine.tasks import run_message_emitter_worker
 from engine.tasks import run_batch_data_worker
+from engine.tasks.config import WorkerConfig
 
 
-class MultiUpstreamWorkerTest(TestCase):
+class BatchDataWorkerTest(TestCase):
     def setUp(self):
-        super(MultiUpstreamWorkerTest, self).setUp()
+        super(BatchDataWorkerTest, self).setUp()
 
     def test1(self):
-        """ Test worker with one upstream and no downstream"""
+        """ Test worker with one upstream and no downstream:
+        worker1 \
+                worker2
+        """
 
         job_id = str(uuid.uuid4())
 
-        worker_1 = {'job_id': job_id, 'node_id': str(uuid.uuid4()),
-                    'upstreams': [], 'downstreams': []}
+        worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()))
+        worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()))
 
-        worker_2 = {'job_id': job_id, 'node_id': str(uuid.uuid4()),
-                    'upstreams': [], 'downstreams': []}
+        worker1_conf.add_downstream(worker2_conf.node_id)
 
-        worker_1['downstreams'].append(worker_2['node_id'])
-        worker_2['upstreams'].append(worker_1['node_id'])
+        worker2_conf.add_upstream(worker1_conf.node_id)
 
-        run_message_emitter_worker.apply_async(args=[worker_1])
-        run_batch_data_worker.apply_async(args=[worker_2])
+        run_message_emitter_worker.apply_async(args=[worker1_conf.to_dict])
+        run_batch_data_worker.apply_async(args=[worker2_conf.to_dict])
 
     def test2(self):
-        """ Test worker with two upstreams and no downstream"""
+        """ Test worker with two upstreams and no downstream:
+        worker1 \
+                  worker3
+        worker2 /
+        """
 
         job_id = str(uuid.uuid4())
 
-        worker_1 = {'job_id': job_id, 'node_id': str(uuid.uuid4()),
-                    'upstreams': [], 'downstreams': []}
-        worker_2 = {'job_id': job_id, 'node_id': str(uuid.uuid4()),
-                    'upstreams': [], 'downstreams': []}
-        worker_3 = {'job_id': job_id, 'node_id': str(uuid.uuid4()),
-                    'upstreams': [], 'downstreams': []}
+        worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()))
+        worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()))
+        worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()))
 
-        worker_1['downstreams'].append(worker_3['node_id'])
-        worker_2['downstreams'].append(worker_3['node_id'])
+        worker1_conf.add_downstream(worker3_conf)
 
-        worker_3['upstreams'].append(worker_1['node_id'])
-        worker_3['upstreams'].append(worker_2['node_id'])
+        worker2_conf.add_downstream(worker3_conf)
 
-        run_message_emitter_worker.apply_async(args=[worker_1])
-        run_message_emitter_worker.apply_async(args=[worker_2])
-        run_batch_data_worker.apply_async(args=[worker_3])
+        worker3_conf.add_upstream(worker1_conf)
+        worker3_conf.add_upstream(worker2_conf)
+
+        run_message_emitter_worker.apply_async(args=[worker1_conf.to_dict])
+        run_message_emitter_worker.apply_async(args=[worker2_conf.to_dict])
+        run_batch_data_worker.apply_async(args=[worker3_conf.to_dict])
 
     def test3(self):
-        """ Test worker with three upstreams and one downstream"""
+        """ Test worker with three upstreams and one downstream:
+        worker1 \
+        worker2  — worker4 - dummy-worker
+        worker3 /
+        """
 
         job_id = str(uuid.uuid4())
 
-        worker_1 = {'job_id': job_id, 'node_id': str(uuid.uuid4()),
-                    'upstreams': [], 'downstreams': []}
-        worker_2 = {'job_id': job_id, 'node_id': str(uuid.uuid4()),
-                    'upstreams': [], 'downstreams': []}
-        worker_3 = {'job_id': job_id, 'node_id': str(uuid.uuid4()),
-                    'upstreams': [], 'downstreams': []}
-        worker_4 = {'job_id': job_id, 'node_id': str(uuid.uuid4()),
-                    'upstreams': [], 'downstreams': []}
+        worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()))
+        worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()))
+        worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()))
+        worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()))
 
-        worker_1['downstreams'].append(worker_4['node_id'])
-        worker_2['downstreams'].append(worker_4['node_id'])
-        worker_3['downstreams'].append(worker_4['node_id'])
+        worker1_conf.add_downstream(worker4_conf)
+        worker2_conf.add_downstream(worker4_conf)
+        worker3_conf.add_downstream(worker4_conf)
 
-        worker_4['upstreams'].append(worker_1['node_id'])
-        worker_4['upstreams'].append(worker_2['node_id'])
-        worker_4['upstreams'].append(worker_3['node_id'])
-        worker_4['downstreams'].append(
-            'test3_worker_4_dummy_downstream_1 ' + str(uuid.uuid4()))
+        worker4_conf.add_upstreams([worker1_conf, worker2_conf, worker3_conf])
+        worker4_conf.add_downstream('test3_dummy-worker4_downstream_1_of_[' + str(worker4_conf.node_id) + ']')
 
-        run_message_emitter_worker.apply_async(args=[worker_1])
-        run_message_emitter_worker.apply_async(args=[worker_2])
-        run_message_emitter_worker.apply_async(args=[worker_3])
-        run_batch_data_worker.apply_async(args=[worker_4])
+        run_message_emitter_worker.apply_async(args=[worker1_conf.to_dict])
+        run_message_emitter_worker.apply_async(args=[worker2_conf.to_dict])
+        run_message_emitter_worker.apply_async(args=[worker3_conf.to_dict])
+        run_batch_data_worker.apply_async(args=[worker4_conf.to_dict])
 
     def test4(self):
-        """ Test worker with three upstreams and two downstream"""
+        """ Test worker with three upstreams and two downstream:
+        worker1 \
+                 \            dummy-worker1
+        worker2 --- worker4 /
+                 /          \ dummy-worker2
+        worker3 /
+        """
 
         job_id = str(uuid.uuid4())
 
-        worker_1 = {'job_id': job_id, 'node_id': str(uuid.uuid4()),
-                    'upstreams': [], 'downstreams': []}
-        worker_2 = {'job_id': job_id, 'node_id': str(uuid.uuid4()),
-                    'upstreams': [], 'downstreams': []}
-        worker_3 = {'job_id': job_id, 'node_id': str(uuid.uuid4()),
-                    'upstreams': [], 'downstreams': []}
-        worker_4 = {'job_id': job_id, 'node_id': str(uuid.uuid4()),
-                    'upstreams': [], 'downstreams': []}
+        worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()))
+        worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()))
+        worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()))
+        worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()))
 
-        worker_1['downstreams'].append(worker_4['node_id'])
-        worker_2['downstreams'].append(worker_4['node_id'])
-        worker_3['downstreams'].append(worker_4['node_id'])
+        worker1_conf.add_downstream(worker4_conf)
+        worker2_conf.add_downstream(worker4_conf)
+        worker3_conf.add_downstream(worker4_conf)
 
-        worker_4['upstreams'].append(worker_1['node_id'])
-        worker_4['upstreams'].append(worker_2['node_id'])
-        worker_4['upstreams'].append(worker_3['node_id'])
-        worker_4['downstreams'].append(
-            'test4_worker_4_dummy_downstream_1 ' + str(uuid.uuid4()))
-        worker_4['downstreams'].append(
-            'test4_worker_4_dummy_downstream_2 ' + str(uuid.uuid4()))
+        worker4_conf.add_upstreams(
+            [worker1_conf.node_id, worker2_conf.node_id, worker3_conf.node_id])
+        worker4_conf.add_downstreams(
+            ['test4_dummy-worker4_downstream_1_of_[' + str(worker4_conf.node_id) + ']',
+             'test4_dummy-worker4_downstream_2_of_[' + str(worker4_conf.node_id) + ']'])
 
-        run_message_emitter_worker.apply_async(args=[worker_1])
-        run_message_emitter_worker.apply_async(args=[worker_2])
-        run_message_emitter_worker.apply_async(args=[worker_3])
-        run_batch_data_worker.apply_async(args=[worker_4])
+        run_message_emitter_worker.apply_async(args=[worker1_conf.to_dict])
+        run_message_emitter_worker.apply_async(args=[worker2_conf.to_dict])
+        run_message_emitter_worker.apply_async(args=[worker3_conf.to_dict])
+        run_batch_data_worker.apply_async(args=[worker4_conf.to_dict])
