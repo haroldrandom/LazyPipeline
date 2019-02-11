@@ -1,3 +1,6 @@
+import json
+
+
 class WorkerConfig():
     def __init__(self, job_id, node_id):
         self._job_id = job_id
@@ -35,6 +38,9 @@ class WorkerConfig():
              'downstreams': self._downstreams}
         return c
 
+    def __str__(self):
+        return json.dumps(self.to_dict)
+
     @staticmethod
     def config_from_object(config):
         if 'job_id' not in config:
@@ -54,12 +60,15 @@ class WorkerConfig():
 
     def add_upstream(self, up):
         if isinstance(up, WorkerConfig):
-            self._upstreams.append(up.node_id)
+            up = up.node_id
         elif isinstance(up, str):
-            self._upstreams.append(up)
+            up = up
         else:
             raise AttributeError(
-                'down must be either instance of WorkerConfig or str')
+                'up must be either instance of WorkerConfig or str')
+
+        if up not in self._upstreams:
+            self._upstreams.append(up)
 
     def add_upstreams(self, ups):
         for up in ups:
@@ -67,12 +76,15 @@ class WorkerConfig():
 
     def add_downstream(self, down):
         if isinstance(down, WorkerConfig):
-            self._downstreams.append(down.node_id)
+            down = down.node_id
         elif isinstance(down, str):
-            self._downstreams.append(down)
+            down = down
         else:
             raise AttributeError(
                 'down must be either instance of WorkerConfig or str')
+
+        if down not in self._downstreams:
+            self._downstreams.append(down)
 
     def add_downstreams(self, downs):
         for down in downs:

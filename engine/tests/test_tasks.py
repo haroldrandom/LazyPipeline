@@ -82,8 +82,8 @@ class BatchDataWorkerTest(TestCase):
         """ Test worker with three upstreams and two downstream:
         worker1 \
                  \            dummy-worker1
-        worker2 --- worker4 /
-                 /          \ dummy-worker2
+        worker2   -- worker4 /
+                 /           \ dummy-worker2
         worker3 /
         """
 
