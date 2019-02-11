@@ -2,7 +2,7 @@ import json
 
 
 class WorkerConfig():
-    def __init__(self, job_id, node_id):
+    def __init__(self, job_id, node_id, script):
         self._job_id = job_id
         self._node_id = node_id
 
@@ -10,9 +10,12 @@ class WorkerConfig():
             raise AttributeError('job_id is must not be empty')
         if not self._node_id:
             raise AttributeError('node_id must not be empty')
+        if not script:
+            raise AttributeError('script must not be empty')
 
         self._upstreams = []
         self._downstreams = []
+        self._script = script
 
     @property
     def job_id(self):
@@ -31,9 +34,14 @@ class WorkerConfig():
         return self._downstreams
 
     @property
+    def script(self):
+        return self._script
+
+    @property
     def to_dict(self):
         c = {'job_id': self._job_id,
              'node_id': self._node_id,
+             'script': self._script,
              'upstreams': self._upstreams,
              'downstreams': self._downstreams}
         return c
@@ -44,11 +52,15 @@ class WorkerConfig():
     @staticmethod
     def config_from_object(config):
         if 'job_id' not in config:
-            raise AttributeError('key job_id must exist')
+            raise AttributeError('key job_id must not be empty')
         if 'node_id' not in config:
-            raise AttributeError('key node_id must exist')
+            raise AttributeError('key node_id must not be empty')
+        if 'script' not in config:
+            raise AttributeError('key script must not be empty')
 
-        wc = WorkerConfig(config.get('job_id'), config.get('node_id'))
+        script = config.get('script')
+
+        wc = WorkerConfig(config.get('job_id'), config.get('node_id'), script)
 
         ups = config.get('upstreams') or []
         wc.add_upstreams(ups)

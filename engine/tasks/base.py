@@ -1,11 +1,17 @@
+import os
 import json
+import shutil
+import stat
 from datetime import timedelta
 from collections import deque
+from collections import OrderedDict
 
+from django.conf import settings
 from django_redis import get_redis_connection
 from celery.utils.log import get_task_logger
 
 from LazyPipeline import celery_app
+from engine.tasks.config import WorkerConfig
 from engine.tasks.message import MessageType
 from engine.tasks.signal import FinishSignal
 from engine.tasks.utils import UniqueKeySerialCounter
@@ -54,12 +60,15 @@ class WorkerBaseTask(BaseTask):
     time_limit = soft_time_limit + 5
     expires = 300
 
-    def config(self, node):
-        self.upstreams = node.get('upstreams') or []
+    prefix = settings.BASE_DIR
 
-        self.downstreams = node.get('downstreams') or []
+    def config(self, node_conf):
+        self.worker_conf = WorkerConfig.config_from_object(node_conf)
 
-        self.node_id = node['node_id']
+        self.worker_dir = '{base}/worker_containers/{job}/{node}'.format(
+            base=self.prefix, job=self.job_id, node=self.node_id)
+        self.worker_file = self.worker_dir + '/{node_id}.py'.format(
+            node_id=self.node_id)
 
         self.finished_ups = UniqueKeySerialCounter(allowed_keys=self.upstreams)
 
@@ -70,6 +79,49 @@ class WorkerBaseTask(BaseTask):
             self._mq_conn = get_redis_connection('LazyPipeline')
 
         self._configured = True
+
+    def init(self, node_conf):
+        # set worker runtime configuration
+        self.config(node_conf)
+
+        # prepare temporary executable dir and file
+        try:
+            os.makedirs(self.worker_dir, mode=0o700, exist_ok=True)
+
+            with open(self.worker_file, 'w') as fd:
+                fd.write(self.script)
+            os.chmod(self.worker_file, stat.S_IRWXU)
+        except Exception as e:
+            logger.warn('can not create worker script: %s' % str(e))
+            self.destroy()
+
+    def destroy(self):
+        """ delete temporary executable file and dir """
+        shutil.rmtree(self.worker_dir, ignore_errors=True)
+
+    @property
+    def job_id(self):
+        return self.worker_conf.job_id
+
+    @property
+    def node_id(self):
+        return self.worker_conf.node_id
+
+    @property
+    def upstreams(self):
+        return self.worker_conf.upstreams
+
+    @property
+    def downstreams(self):
+        return self.worker_conf.downstreams
+
+    @property
+    def script(self):
+        return self.worker_conf.script
+
+    @property
+    def script_file(self):
+        return self.worker_file
 
     def _recv_message(self):
         if not hasattr(self, '_configured') or not self._configured:
@@ -102,24 +154,6 @@ class WorkerBaseTask(BaseTask):
         self._mq_conn.lpush(downstream, message)
         self._mq_conn.expire(downstream, self.expires)
 
-    def pull_data(self):
-        raise NotImplementedError("Subcalss not implemented yet")
-
-    def push_data(self, message_body):
-        raise NotImplementedError("Subclass not implemented yet")
-
-    def send_timeout_message(self):
-        for down in self.downstreams:
-            msg = self._pack_message(
-                [], MessageType.CTRL, is_finished=True, is_timeout=True)
-            self._send_message(down, msg)
-
-    def send_finished_message(self):
-        for down in self.downstreams:
-            msg = self._pack_message(
-                [], MessageType.CTRL, is_finished=True, is_timeout=False)
-            self._send_message(down, msg)
-
     def _validate_message(self, msg):
         try:
             if (
@@ -145,21 +179,22 @@ class WorkerBaseTask(BaseTask):
 
         return True
 
-
-class MessageEmitterWorker(WorkerBaseTask):
-
-    def config(self, node_conf):
-        super(MessageEmitterWorker, self).config(node_conf)
-
     def pull_data(self):
-        """ Invoke and get nothing.
-        """
-        pass
+        raise NotImplementedError("Subcalss not implemented yet")
 
     def push_data(self, message_body):
-        msg = self._pack_message(message_body)
+        raise NotImplementedError("Subclass not implemented yet")
 
+    def send_timeout_message(self):
         for down in self.downstreams:
+            msg = self._pack_message(
+                [], MessageType.CTRL, is_finished=True, is_timeout=True)
+            self._send_message(down, msg)
+
+    def send_finished_message(self):
+        for down in self.downstreams:
+            msg = self._pack_message(
+                [], MessageType.CTRL, is_finished=True, is_timeout=False)
             self._send_message(down, msg)
 
 
@@ -171,15 +206,18 @@ class BatchDataWorker(WorkerBaseTask):
     def config(self, node_conf):
         super().config(node_conf)
 
-        self.upstream_data = {}
+        self.upstream_data = OrderedDict()
         for up in self.upstreams:
-            self.upstream_data[up] = {'data': []}
+            self.upstream_data[up] = {'sender': up, 'data': []}
 
     def pull_data(self):
         """ Invoke once and return all data from upstreams.
+
+        return self.upstreams_data if self.upstreams exist,
+        otherwise None
         """
 
-        while True:
+        while len(self.upstreams) > 0:
             msg = self._recv_message()
 
             up = msg['sender']
@@ -195,6 +233,8 @@ class BatchDataWorker(WorkerBaseTask):
                     return self.upstream_data
             else:
                 self.upstream_data[up]['data'].append(msg['data'])
+
+        return self.upstream_data
 
     def push_data(self, message_body):
         msg = self._pack_message(message_body)
@@ -237,8 +277,8 @@ class StreamDataWorker(WorkerBaseTask):
             if complete_cnt >= len(self.upstreams):
                 raise FinishSignal()  # raise finished signal
 
-            useable_ups = list(filter(lambda up: len(self.upstreams_data[up]['data']) > 0,
-                                      self.upstreams_data))
+            useable_ups = list(filter(lambda up: len(self.upstream_data[up]['data']) > 0,
+                                      self.upstream_data))
             if len(useable_ups) + complete_cnt < len(self.upstreams):
                 continue
 

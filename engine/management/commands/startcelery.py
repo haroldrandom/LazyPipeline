@@ -21,12 +21,18 @@ class Command(BaseCommand):
         os.chdir(settings.BASE_DIR)
 
         handler = AutoRestartTrick(
-                    command=shlex.split(self.start_celery_cmd),
-                    patterns=['*.py'])
+            command=shlex.split(self.start_celery_cmd),
+            patterns=['*.py'])
         handler.start()     # start celery
 
+        paths = [
+            settings.BASE_DIR + '/LazyPipeline',
+            settings.BASE_DIR + '/engine',
+        ]
+
         ob = Observer()
-        ob.schedule(handler, settings.BASE_DIR, recursive=True)
+        for path in paths:
+            ob.schedule(handler, path, recursive=True)
         ob.start()
 
         try:
