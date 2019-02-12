@@ -41,8 +41,6 @@ def run_batch_data_worker(conf):
             cmd, stderr=subprocess.STDOUT, env=new_env)
         output = output.decode('utf-8')
 
-        print(output)
-
         self.push_data(output)
     except subprocess.CalledProcessError:
         logger.error('[TASK_ID=%s]- %s' % (self.node_id, 'RET_CODE ERROR'))
