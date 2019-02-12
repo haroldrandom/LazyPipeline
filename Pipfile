@@ -14,6 +14,10 @@ django-redis = "*"
 psycopg2 = "*"
 watchdog = "*"
 psycopg2-binary = "*"
+pyyaml = ">=4.2b1"
 
 [requires]
 python_version = "3.6"
+
+[pipenv]
+allow_prereleases = true
