@@ -12,6 +12,9 @@ app = Celery('LazyPipeline')
 #   should have a `CELERY_` prefix.
 app.config_from_object('django.conf:settings', namespace='CELERY')
 
+# TODO wired but seems the only effective way to set result expiration
+app.conf.result_expires = 30
+
 # Load task modules from all registered Django app configs.
 app.autodiscover_tasks()
 

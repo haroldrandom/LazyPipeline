@@ -129,6 +129,10 @@ STATIC_URL = '/static/'
 # Celery Configuration
 CELERY_BROKER_URL = 'redis://localhost:6379/1'
 
+CELERY_RESULT_BACKEND = CELERY_BROKER_URL
+
+CELERY_TASK_RESULT_EXPIRES = 60     # not take effective
+
 CELERY_ACCEPT_CONTENT = ['application/json']
 
 CELERY_TASK_SERIALIZER = 'json'

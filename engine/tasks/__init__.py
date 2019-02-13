@@ -41,16 +41,25 @@ def run_batch_data_worker(conf):
             cmd, stderr=subprocess.STDOUT, env=new_env)
         output = output.decode('utf-8')
 
+        print(output)
+
         self.push_data(output)
-    except subprocess.CalledProcessError:
-        logger.error('[TASK_ID=%s]- %s' % (self.node_id, 'RET_CODE ERROR'))
+    except subprocess.CalledProcessError as exc:
+        logger.error('[TASK_ID=%s] - %s' % (self.node_id, 'RET_CODE ERROR'))
+        logger.error('[TASK_ID=%s] - %s' % (self.node_id, str(exc)))
+        print(exc.output.decode('utf-8'))
     except SoftTimeLimitExceeded:
-        logger.error('[TASK_ID=%s]- %s' % (self.node_id, 'TIMEOUT'))
+        logger.error('[TASK_ID=%s] - %s' % (self.node_id, 'TIMEOUT'))
         self.send_timeout_message()
+    except Exception as e:
+        logger.error('[TASK_ID=%s] - %s' % (self.node_id, 'UNHANLDE ERROR'))
+        logger.error('[TASK_ID=%s] - %s' % (self.node_id, str(e)))
     finally:
-        logger.info('[TASK_ID=%s]- %s' % (self.node_id, 'FINISHED'))
-        self.destroy()  # delete external resource
+        logger.info('[TASK_ID=%s] - %s' % (self.node_id, 'FINISHED'))
         self.send_finished_message()    # send finished message
+        self.destroy()  # delete external resource
+
+        return {'job_id': self.job_id, 'node_id': self.node_id, 'state': self.worker_state}
 
 
 @celery_app.task(base=StreamDataWorker)

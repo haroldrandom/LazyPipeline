@@ -20,6 +20,12 @@ from engine.tasks.utils import UniqueKeySerialCounter
 logger = get_task_logger(__name__)
 
 
+STATE_NOT_INIT = 'NOT INIT'
+STATE_INIT = 'INIT'
+STATE_FINISHED = 'FINISHED'
+STATE_TIMEOUT = 'TIMEOUT'
+
+
 class BaseTask(celery_app.Task):
     """ Common task services"""
 
@@ -53,20 +59,22 @@ class WorkerBaseTask(BaseTask):
     """ Parse config and run script
     """
 
-    ignore_result = True
+    ignore_result = False
     retry = False
     eta = timedelta(seconds=4)
     soft_time_limit = 3600
     time_limit = soft_time_limit + 5
     expires = 300
 
-    prefix = settings.BASE_DIR
+    worker_home = settings.BASE_DIR
+
+    worker_state = STATE_NOT_INIT
 
     def config(self, node_conf):
         self.worker_conf = WorkerConfig.config_from_object(node_conf)
 
         self.worker_dir = '{base}/worker_containers/{job}/{node}'.format(
-            base=self.prefix, job=self.job_id, node=self.node_id)
+            base=self.worker_home, job=self.job_id, node=self.node_id)
         self.worker_file = self.worker_dir + '/{node_id}.py'.format(
             node_id=self.node_id)
 
@@ -78,7 +86,7 @@ class WorkerBaseTask(BaseTask):
         if not hasattr(self, '_mq_conn'):
             self._mq_conn = get_redis_connection('LazyPipeline')
 
-        self._configured = True
+        self.worker_state = STATE_INIT
 
     def init(self, node_conf):
         # set worker runtime configuration
@@ -124,8 +132,8 @@ class WorkerBaseTask(BaseTask):
         return self.worker_file
 
     def _recv_message(self):
-        if not hasattr(self, '_configured') or not self._configured:
-            raise Exception("Invoke config() first")
+        if self.worker_state != STATE_INIT:
+            raise Exception("Invoke init() first")
 
         msg = self._mq_conn.brpop(self.node_id, timeout=self.expires)
         msg = json.loads(msg[1])    # msg is tuple(node_id, message)
@@ -148,8 +156,8 @@ class WorkerBaseTask(BaseTask):
         return json.dumps(c)
 
     def _send_message(self, downstream, message):
-        if not hasattr(self, '_configured') or not self._configured:
-            raise Exception("Invoke config() first")
+        if self.worker_state != STATE_INIT:
+            raise Exception("Invoke init() first")
 
         self._mq_conn.lpush(downstream, message)
         self._mq_conn.expire(downstream, self.expires)
@@ -191,11 +199,16 @@ class WorkerBaseTask(BaseTask):
                 [], MessageType.CTRL, is_finished=True, is_timeout=True)
             self._send_message(down, msg)
 
+        self.worker_state = STATE_TIMEOUT
+
     def send_finished_message(self):
         for down in self.downstreams:
             msg = self._pack_message(
                 [], MessageType.CTRL, is_finished=True, is_timeout=False)
             self._send_message(down, msg)
+
+        if self.worker_state != STATE_TIMEOUT:
+            self.worker_state = STATE_FINISHED
 
 
 class BatchDataWorker(WorkerBaseTask):

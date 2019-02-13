@@ -12,7 +12,7 @@ from watchdog.tricks import AutoRestartTrick
 class Command(BaseCommand):
     help = 'Start celery workers. Autoreload when file changed.'
 
-    start_celery_cmd = 'celery -A LazyPipeline worker -l INFO'
+    start_celery_cmd = 'celery -A LazyPipeline worker -B -l INFO'
 
     def handle(self, *args, **kwargs):
         self.stdout.write(self.style.WARNING(
