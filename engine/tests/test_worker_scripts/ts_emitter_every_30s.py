@@ -9,7 +9,7 @@ from datetime import datetime
 
 
 def main():30
-    for i in range(10):
+    for i in range(30):
         time.sleep(1)
 
         n = datetime.now()

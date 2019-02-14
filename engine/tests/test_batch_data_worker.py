@@ -143,7 +143,7 @@ class BatchDataWorkerTest(TestCase):
         self.assertEqual(r4['state'], 'FINISHED')
 
     def test_3ups_2downs(self):
-        """ Test worker with three upstreams and two downstream:
+        """ Test worker with 3 upstreams and 2 downstream:
 
         (worker1) \
                    \               /  (dummy-worker1)
@@ -185,3 +185,120 @@ class BatchDataWorkerTest(TestCase):
         r6 = worker6_task.get()
         self.assertEqual(worker6_task.state, 'SUCCESS')
         self.assertTrue(r6['state'], 'FINISHED')
+
+
+class BatchDataWorkerTimeoutTest(TestCase):
+    def setUp(self):
+        super(BatchDataWorkerTimeoutTest, self).setUp()
+
+        self.scripts_home = settings.BASE_DIR + '/engine/tests/test_worker_scripts/'
+
+        with open(self.scripts_home + 'ts_emitter_every_3s.py') as fd:
+            self.ts_emitter_3s_script = fd.read()
+
+        with open(self.scripts_home + 'ts_emitter_every_5s.py') as fd:
+            self.ts_emitter_5s_script = fd.read()
+
+        with open(self.scripts_home + 'ts_emitter_every_10s.py') as fd:
+            self.ts_emitter_10s_script = fd.read()
+
+        with open(self.scripts_home + 'batch_data_worker_1ups.py') as fd:
+            self.batch_data_worker_1ups_script = fd.read()
+
+        with open(self.scripts_home + 'batch_data_worker_2ups.py') as fd:
+            self.batch_data_worker_2ups_script = fd.read()
+
+        with open(self.scripts_home + 'batch_data_worker_3ups.py') as fd:
+            self.batch_data_worker_3ups_script = fd.read()
+
+    def test_timeout_0up_0down(self):
+        """
+        Test single worker timeout, and without downstream.
+        The output will be left behind until timeout
+
+        (worker1)
+        """
+        job_id = str(uuid.uuid4())
+
+        worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_10s_script)
+
+        worker1_task = run_batch_data_worker.apply_async(
+            args=[worker1_conf.to_dict],
+            soft_time_limit=2)
+
+        r1 = worker1_task.get()
+
+        self.assertEqual(worker1_task.state, 'SUCCESS')
+        self.assertEqual(r1['state'], 'TIMEOUT')
+
+    def test_timeout_1up_0down(self):
+        """
+        Test worker when worker2 timeout but worker1 doesn't,
+        so worker1's ouput will be left behind in Message Queue until messgae timeout
+
+        (worker1) --> (worker2)
+        """
+        job_id = str(uuid.uuid4())
+
+        worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_3s_script)
+        worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_3s_script)
+
+        worker1_conf.add_downstream(worker2_conf)
+        worker2_conf.add_upstream(worker1_conf)
+
+        worker1_task = run_batch_data_worker.apply_async(args=[worker1_conf.to_dict])
+
+        worker2_task = run_batch_data_worker.apply_async(
+            args=[worker2_conf.to_dict],
+            soft_time_limit=2)
+
+        r1 = worker1_task.get()
+        r2 = worker2_task.get()
+
+        self.assertEqual(r1['state'], 'FINISHED')
+        self.assertEqual(r2['state'], 'TIMEOUT')
+
+    def test_timeout_2ups_1down(self):
+        """
+        Test worker with 2ups and 1down
+
+        (worker1) \
+                   —> (worker3) -> (worker4) -> discard output
+        (worker2) /
+
+        worker3 will discard worker2's output, and only worker1's result pass down
+        """
+        job_id = str(uuid.uuid4())
+
+        worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_3s_script)
+        worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_10s_script)
+        worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.batch_data_worker_2ups_script)
+        worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.batch_data_worker_1ups_script)
+
+        worker1_conf.add_downstream(worker3_conf)
+
+        worker2_conf.add_downstream(worker3_conf)
+
+        worker3_conf.add_upstreams([worker1_conf, worker2_conf])
+        worker3_conf.add_downstream(worker4_conf)
+
+        worker4_conf.add_upstream(worker3_conf)
+
+        worker1_task = run_batch_data_worker.apply_async(args=[worker1_conf.to_dict])
+        worker2_task = run_batch_data_worker.apply_async(
+            args=[worker2_conf.to_dict],
+            soft_time_limit=2)
+        worker3_task = run_batch_data_worker.apply_async(args=[worker3_conf.to_dict])
+        worker4_task = run_batch_data_worker.apply_async(args=[worker4_conf.to_dict])
+
+        r1 = worker1_task.get()
+        self.assertTrue(r1['state'], 'FINISHED')
+
+        r2 = worker2_task.get()
+        self.assertTrue(r2['state'], 'TIMEOUT')
+
+        r3 = worker3_task.get()
+        self.assertTrue(r3['state'], 'FINISHED')
+
+        r4 = worker4_task.get()
+        self.assertTrue(r4['state'], 'FINISHED')

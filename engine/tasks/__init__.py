@@ -1,4 +1,5 @@
 import os
+import json
 import shlex
 import copy
 import subprocess
@@ -22,7 +23,7 @@ def run_batch_data_worker(conf):
     try:
         self.init(conf)
     except Exception:
-        logger.error('[TASK_ID=%s]- %s' % (self.node_id, 'CONFIG ERROR'))
+        logger.error('[TASK_ID=%s] - %s' % (self.node_id, 'CONFIG ERROR'))
         self.destroy()
         return
 
@@ -30,7 +31,6 @@ def run_batch_data_worker(conf):
         messages = self.pull_data() or {}
 
         new_env = copy.deepcopy(dict(os.environ))   # TODO env must be manicured
-        import json
 
         for idx, body in enumerate(messages.items()):
             k = 'ARG_{0}'.format(idx + 1)
@@ -41,13 +41,11 @@ def run_batch_data_worker(conf):
             cmd, stderr=subprocess.STDOUT, env=new_env)
         output = output.decode('utf-8')
 
-        print(output)
-
         self.push_data(output)
+        self.send_finished_message()    # send finished message
     except subprocess.CalledProcessError as exc:
         logger.error('[TASK_ID=%s] - %s' % (self.node_id, 'RET_CODE ERROR'))
-        logger.error('[TASK_ID=%s] - %s' % (self.node_id, str(exc)))
-        print(exc.output.decode('utf-8'))
+        logger.error('[TASK_ID=%s] - %s' % (self.node_id, exc.output.decode('utf-8')))
     except SoftTimeLimitExceeded:
         logger.error('[TASK_ID=%s] - %s' % (self.node_id, 'TIMEOUT'))
         self.send_timeout_message()
@@ -56,7 +54,6 @@ def run_batch_data_worker(conf):
         logger.error('[TASK_ID=%s] - %s' % (self.node_id, str(e)))
     finally:
         logger.info('[TASK_ID=%s] - %s' % (self.node_id, 'FINISHED'))
-        self.send_finished_message()    # send finished message
         self.destroy()  # delete external resource
 
         return {'job_id': self.job_id, 'node_id': self.node_id, 'state': self.worker_state}

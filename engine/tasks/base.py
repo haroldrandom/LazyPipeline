@@ -156,7 +156,7 @@ class WorkerBaseTask(BaseTask):
         return json.dumps(c)
 
     def _send_message(self, downstream, message):
-        if self.worker_state != STATE_INIT:
+        if self.worker_state == STATE_NOT_INIT:
             raise Exception("Invoke init() first")
 
         self._mq_conn.lpush(downstream, message)
@@ -236,10 +236,12 @@ class BatchDataWorker(WorkerBaseTask):
             up = msg['sender']
 
             if msg['type'] == MessageType.CTRL:
-                if msg['status']['is_finished'] is True:
-                    self.finished_ups[up] += 1
                 if msg['status']['is_timeout'] is True:
                     self.timeout_ups[up] += 1
+                elif msg['status']['is_finished'] is True:
+                    self.finished_ups[up] += 1
+                else:
+                    continue
 
                 complete_cnt = len(self.finished_ups) + len(self.timeout_ups)
                 if complete_cnt >= len(self.upstreams):

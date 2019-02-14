@@ -24,7 +24,7 @@ TOOD
 - LazyPipeline Engine
     - [ ] Pipeline with schedulablity
     - [x] Pipeline with BatchDataWorker, StreamDataWorker, ConvergenceDataWorker
-    - [ ] Test demo
+    - [x] Test demo
     - [ ] Dockerization
 - LazyPipeline Core
     - [ ] Pipeline your scripts and run them, save them, edit them
