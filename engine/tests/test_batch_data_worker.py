@@ -35,7 +35,8 @@ class BatchDataWorkerTest(TestCase):
             self.batch_data_worker_3ups_script = fd.read()
 
     def test_1up_0down(self):
-        """ Test worker with 1 upstream and no downstream:
+        """
+        Test worker with 1 upstream and no downstream:
 
         (worker1) --> (worker2) --> discard output
 
@@ -67,7 +68,8 @@ class BatchDataWorkerTest(TestCase):
         self.assertEqual(r2['node_id'], worker2_conf.node_id)
 
     def test_2ups_0down(self):
-        """ Test worker with 2 upstreams and no downstream:
+        """
+        Test worker with 2 upstreams and no downstream:
 
         (worker1) \
                    (worker3) --> discard output
@@ -106,7 +108,8 @@ class BatchDataWorkerTest(TestCase):
         self.assertEqual(r3['state'], 'FINISHED')
 
     def test_2ups_1down(self):
-        """ Test worker with two upstreams and one downstream:
+        """
+        Test worker with two upstreams and one downstream:
 
         (worker1) \
                    —- (worker3) - (worker4) -> discard output
@@ -143,7 +146,8 @@ class BatchDataWorkerTest(TestCase):
         self.assertEqual(r4['state'], 'FINISHED')
 
     def test_3ups_2downs(self):
-        """ Test worker with three upstreams and two downstream:
+        """
+        Test worker with three upstreams and two downstream:
 
         (worker1) \
                    \               /  (dummy-worker1)
