@@ -16,17 +16,17 @@ logger = get_task_logger(__name__)
 
 
 @celery_app.task(base=BatchDataWorker)
-def run_batch_data_worker(conf):
+def run_batch_data_worker(conf, reserve_output=False):
     self = run_batch_data_worker
 
-    # init this worker
     try:
-        self.init(conf)
+        self.init(conf)  # init this worker
     except Exception:
         logger.error('[TASK_ID=%s] - %s' % (self.node_id, 'CONFIG ERROR'))
         self.destroy()
         return
 
+    output = None
     try:
         messages = self.pull_data() or {}
 
@@ -56,7 +56,11 @@ def run_batch_data_worker(conf):
         logger.info('[TASK_ID=%s] - %s' % (self.node_id, 'FINISHED'))
         self.destroy()  # delete external resource
 
-        return {'job_id': self.job_id, 'node_id': self.node_id, 'state': self.worker_state}
+        reserve_output = output if reserve_output is True else None
+        return {'job_id': self.job_id,
+                'node_id': self.node_id,
+                'output': reserve_output,
+                'state': self.worker_state}
 
 
 @celery_app.task(base=StreamDataWorker)
