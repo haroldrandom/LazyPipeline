@@ -8,31 +8,29 @@ from engine.tasks.config import WorkerConfig
 
 
 class BatchDataWorkerTest(TestCase):
-    def setUp(self):
-        super(BatchDataWorkerTest, self).setUp()
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
 
-        self.scripts_home = settings.BASE_DIR + '/engine/tests/test_worker_scripts/'
+        cls.scripts_home = settings.BASE_DIR + '/engine/tests/test_worker_scripts/'
 
-        with open(self.scripts_home + 'ts_emitter_every_3s.py') as fd:
-            self.ts_emitter_3s_script = fd.read()
+        with open(cls.scripts_home + 'ts_emitter_every_3s.py') as fd:
+            cls.ts_emitter_3s_script = fd.read()
 
-        with open(self.scripts_home + 'ts_emitter_every_5s.py') as fd:
-            self.ts_emitter_5s_script = fd.read()
+        with open(cls.scripts_home + 'ts_emitter_every_5s.py') as fd:
+            cls.ts_emitter_5s_script = fd.read()
 
-        with open(self.scripts_home + 'ts_emitter_every_10s.py') as fd:
-            self.ts_emitter_10s_script = fd.read()
+        with open(cls.scripts_home + 'ts_emitter_every_10s.py') as fd:
+            cls.ts_emitter_10s_script = fd.read()
 
-        with open(self.scripts_home + 'ts_emitter_every_30s.py') as fd:
-            self.ts_emitter_30s_script = fd.read()
+        with open(cls.scripts_home + 'batch_data_worker_1ups.py') as fd:
+            cls.batch_data_worker_1ups_script = fd.read()
 
-        with open(self.scripts_home + 'batch_data_worker_1ups.py') as fd:
-            self.batch_data_worker_1ups_script = fd.read()
+        with open(cls.scripts_home + 'batch_data_worker_2ups.py') as fd:
+            cls.batch_data_worker_2ups_script = fd.read()
 
-        with open(self.scripts_home + 'batch_data_worker_2ups.py') as fd:
-            self.batch_data_worker_2ups_script = fd.read()
-
-        with open(self.scripts_home + 'batch_data_worker_3ups.py') as fd:
-            self.batch_data_worker_3ups_script = fd.read()
+        with open(cls.scripts_home + 'batch_data_worker_3ups.py') as fd:
+            cls.batch_data_worker_3ups_script = fd.read()
 
     def test_1up_0down(self):
         """
@@ -192,28 +190,29 @@ class BatchDataWorkerTest(TestCase):
 
 
 class BatchDataWorkerTimeoutTest(TestCase):
-    def setUp(self):
-        super(BatchDataWorkerTimeoutTest, self).setUp()
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
 
-        self.scripts_home = settings.BASE_DIR + '/engine/tests/test_worker_scripts/'
+        cls.scripts_home = settings.BASE_DIR + '/engine/tests/test_worker_scripts/'
 
-        with open(self.scripts_home + 'ts_emitter_every_3s.py') as fd:
-            self.ts_emitter_3s_script = fd.read()
+        with open(cls.scripts_home + 'ts_emitter_every_3s.py') as fd:
+            cls.ts_emitter_3s_script = fd.read()
 
-        with open(self.scripts_home + 'ts_emitter_every_5s.py') as fd:
-            self.ts_emitter_5s_script = fd.read()
+        with open(cls.scripts_home + 'ts_emitter_every_5s.py') as fd:
+            cls.ts_emitter_5s_script = fd.read()
 
-        with open(self.scripts_home + 'ts_emitter_every_10s.py') as fd:
-            self.ts_emitter_10s_script = fd.read()
+        with open(cls.scripts_home + 'ts_emitter_every_10s.py') as fd:
+            cls.ts_emitter_10s_script = fd.read()
 
-        with open(self.scripts_home + 'batch_data_worker_1ups.py') as fd:
-            self.batch_data_worker_1ups_script = fd.read()
+        with open(cls.scripts_home + 'batch_data_worker_1ups.py') as fd:
+            cls.batch_data_worker_1ups_script = fd.read()
 
-        with open(self.scripts_home + 'batch_data_worker_2ups.py') as fd:
-            self.batch_data_worker_2ups_script = fd.read()
+        with open(cls.scripts_home + 'batch_data_worker_2ups.py') as fd:
+            cls.batch_data_worker_2ups_script = fd.read()
 
-        with open(self.scripts_home + 'batch_data_worker_3ups.py') as fd:
-            self.batch_data_worker_3ups_script = fd.read()
+        with open(cls.scripts_home + 'batch_data_worker_3ups.py') as fd:
+            cls.batch_data_worker_3ups_script = fd.read()
 
     def test_timeout_0up_0down(self):
         """
@@ -267,6 +266,38 @@ class BatchDataWorkerTimeoutTest(TestCase):
         self.assertEqual(r1['state'], 'FINISHED')
         self.assertEqual(r2['state'], 'TIMEOUT')
         self.assertIsNotNone(r1['output'])
+        self.assertIsNone(r2['output'])
+
+    def test_timeout_1up_0down_2(self):
+        """
+        Test worker when worker1 timeout but worker2 doesn't
+
+        (worker1) --> (worker2)
+        """
+        job_id = str(uuid.uuid4())
+
+        worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_5s_script)
+        worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.batch_data_worker_1ups_script)
+
+        worker1_conf.add_downstream(worker2_conf)
+        worker2_conf.add_upstream(worker1_conf)
+
+        worker1_task = run_batch_data_worker.apply_async(
+            args=[worker1_conf.to_dict],
+            kwargs={'reserve_output': True},
+            soft_time_limit=2)
+
+        worker2_task = run_batch_data_worker.apply_async(
+            args=[worker2_conf.to_dict],
+            kwargs={'reserve_output': True})
+
+        r1 = worker1_task.get()
+        r2 = worker2_task.get()
+
+        self.assertEqual(r1['state'], 'TIMEOUT')
+        self.assertIsNone(r1['output'])
+
+        self.assertEqual(r2['state'], 'FINISHED')
         self.assertIsNone(r2['output'])
 
     def test_timeout_2ups_1down(self):
@@ -384,5 +415,11 @@ class BatchDataWorkerTimeoutTest(TestCase):
         self.assertIsNone(r3['output'])
 
         r4 = worker4_task.get()
+        print(r4)
         self.assertEqual(r4['state'], 'FINISHED')
-        self.asertIsNone(r4['output'])
+        self.assertIsNone(r4['output'])
+
+
+class BatchDataWorkerExpiresTest(TestCase):
+    def setUp(self):
+        pass

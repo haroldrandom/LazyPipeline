@@ -39,7 +39,7 @@ def run_batch_data_worker(conf, reserve_output=False):
         cmd = shlex.split('python {0}'.format(self.script_file))
         output = subprocess.check_output(
             cmd, stderr=subprocess.STDOUT, env=new_env)
-        output = output.decode('utf-8')
+        output = output.decode('utf-8') or None
 
         self.push_data(output)
         self.send_finished_message()    # send finished message
