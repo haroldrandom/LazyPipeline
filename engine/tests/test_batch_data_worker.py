@@ -1,4 +1,5 @@
 import uuid
+import celery
 
 from django.test import TestCase
 from django.conf import settings
@@ -415,11 +416,49 @@ class BatchDataWorkerTimeoutTest(TestCase):
         self.assertIsNone(r3['output'])
 
         r4 = worker4_task.get()
-        print(r4)
         self.assertEqual(r4['state'], 'FINISHED')
         self.assertIsNone(r4['output'])
 
 
 class BatchDataWorkerExpiresTest(TestCase):
-    def setUp(self):
-        pass
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+
+        cls.scripts_home = settings.BASE_DIR + '/engine/tests/test_worker_scripts/'
+
+        with open(cls.scripts_home + 'ts_emitter_every_3s.py') as fd:
+            cls.ts_emitter_3s_script = fd.read()
+
+        with open(cls.scripts_home + 'ts_emitter_every_5s.py') as fd:
+            cls.ts_emitter_5s_script = fd.read()
+
+        with open(cls.scripts_home + 'ts_emitter_every_10s.py') as fd:
+            cls.ts_emitter_10s_script = fd.read()
+
+        with open(cls.scripts_home + 'batch_data_worker_1ups.py') as fd:
+            cls.batch_data_worker_1ups_script = fd.read()
+
+        with open(cls.scripts_home + 'batch_data_worker_2ups.py') as fd:
+            cls.batch_data_worker_2ups_script = fd.read()
+
+        with open(cls.scripts_home + 'batch_data_worker_3ups.py') as fd:
+            cls.batch_data_worker_3ups_script = fd.read()
+
+    def test_expire(self):
+        """
+        Test worker with expiration
+        """
+        job_id = str(uuid.uuid4())
+
+        worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_3s_script)
+
+        worker1_task = run_batch_data_worker.apply_async(
+            args=[worker1_conf.to_dict],
+            countdown=2,
+            expires=1)
+
+        with self.assertRaises(celery.exceptions.TaskRevokedError):
+            worker1_task.get()
+
+        self.assertEqual(worker1_task.state, 'REVOKED')
