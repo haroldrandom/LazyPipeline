@@ -79,7 +79,7 @@ def stream_data_worker(conf, reserve_output=False):
     try:
         while True:
             messages = next(message_puller) or {}
-            print('message=', messages)
+            # print('message=', messages)
 
             new_env = copy.deepcopy(dict(os.environ))   # TODO env must be manicured
 
@@ -92,7 +92,7 @@ def stream_data_worker(conf, reserve_output=False):
                 cmd, stderr=subprocess.STDOUT, env=new_env)
             output = output.decode('utf-8') or None
 
-            print('output=', output)
+            # print('output=', output)
 
             self.push_data(output)
     except FinishedSignal:
@@ -101,8 +101,7 @@ def stream_data_worker(conf, reserve_output=False):
         logger.error('[TASK_ID=%s] - %s' % (self.node_id, 'RET_CODE ERROR'))
         logger.error('[TASK_ID=%s] - %s' % (self.node_id, exc.output.decode('utf-8')))
     except SoftTimeLimitExceeded:
-        logger.error('TASK [%s] [id=%s]- %s' % (
-            self.name, self.node_id, 'TIMEOUT'))
+        logger.error('[TASK_ID=%s] - %s' % (self.node_id, 'TIMEOUT'))
         self.send_timeout_message()
     except Exception as e:
         logger.error('[TASK_ID=%s] - %s' % (self.node_id, 'UNHANLDE ERROR'))

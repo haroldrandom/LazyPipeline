@@ -82,9 +82,9 @@ class WorkerBaseTask(BaseTask):
 
         self.timeout_ups = UniqueKeySerialCounter(allowed_keys=self.upstreams)
 
-        self.preprocessed_message_cnt = 0
+        self.preprocessed_message_count = 0
 
-        self.postprocessed_message_cnt = 0
+        self.postprocessed_message_count = 0
 
         # set a connection to upstream message queue for reading
         if not hasattr(self, '_mq_conn'):
@@ -115,8 +115,8 @@ class WorkerBaseTask(BaseTask):
     def statistics(self):
         return {'job_id': self.job_id,
                 'node_id': self.node_id,
-                'preprocessed_message_cnt': self.preprocessed_message_cnt,
-                'postprocessed_message_cnt': self.postprocessed_message_cnt,
+                'preprocessed_message_count': self.preprocessed_message_count,
+                'postprocessed_message_count': self.postprocessed_message_count,
                 'state': self.worker_state}
 
     @property
@@ -304,12 +304,23 @@ class StreamDataWorker(WorkerBaseTask):
                 self.upstream_data[up]['data'].append(msg['data'])
 
             complete_cnt = len(self.finished_ups) + len(self.timeout_ups)
+
             if complete_cnt >= len(self.upstreams):
                 raise FinishedSignal()  # raise finished signal
 
-            useable_ups = list(filter(lambda up: len(self.upstream_data[up]['data']) > 0,
-                                      self.upstream_data))
-            if len(useable_ups) + complete_cnt < len(self.upstreams):
+            useable_ups = []
+
+            for up, body in self.upstream_data.items():
+                if self.finished_ups[up] != 0:
+                    useable_ups.append(up)
+                elif self.timeout_ups[up] != 0:
+                    useable_ups.append(up)
+                elif len(body['data']) > 0:
+                    useable_ups.append(up)
+                else:
+                    continue
+
+            if len(useable_ups) < len(self.upstreams):
                 continue
 
             for up in useable_ups:
@@ -318,7 +329,7 @@ class StreamDataWorker(WorkerBaseTask):
                 except Exception:
                     self.ret_data[up]['data'] = []
 
-            self.preprocessed_message_cnt += 1
+            self.preprocessed_message_count += 1
 
             yield self.ret_data
 
@@ -332,7 +343,7 @@ class StreamDataWorker(WorkerBaseTask):
             self._send_message(down, msg)
 
         if len(self.downstreams) > 0:
-            self.postprocessed_message_cnt += 1
+            self.postprocessed_message_count += 1
 
 # class ConvergenceStreamDataWorker(StreamDataWorker):
 #     """ Worker that receive data from upstream(s) at a time.

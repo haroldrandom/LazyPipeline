@@ -8,7 +8,7 @@ from datetime import datetime
 
 
 def main():
-    for i in range(5):
+    for i in range(10):
         n = datetime.now()
 
         data = 'ID:[{0}] [{1}]'.format(i + 1, n.isoformat())
