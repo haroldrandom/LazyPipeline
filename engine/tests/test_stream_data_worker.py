@@ -32,11 +32,11 @@ class StreamDataWorker(TestCase):
         with open(cls.scripts_home + 'data_worker_1ups.py') as fd:
             cls.worker_1ups_script = fd.read()
 
-        with open(cls.scripts_home + 'batch_data_worker_2ups.py') as fd:
-            cls.batch_data_worker_2ups_script = fd.read()
+        with open(cls.scripts_home + 'data_worker_2ups.py') as fd:
+            cls.data_worker_2ups_script = fd.read()
 
-        with open(cls.scripts_home + 'batch_data_worker_3ups.py') as fd:
-            cls.batch_data_worker_3ups_script = fd.read()
+        with open(cls.scripts_home + 'data_worker_3ups.py') as fd:
+            cls.data_worker_3ups_script = fd.read()
 
     def test_0up_0down(self):
         """

@@ -17,8 +17,8 @@ logger = get_task_logger(__name__)
 
 
 @celery_app.task(base=BatchDataWorker)
-def run_batch_data_worker(conf, reserve_output=False):
-    self = run_batch_data_worker
+def batch_data_worker(conf, reserve_output=False):
+    self = batch_data_worker
 
     try:
         self.init(conf)  # init this worker
