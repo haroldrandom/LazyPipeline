@@ -13,7 +13,7 @@ from celery.utils.log import get_task_logger
 from LazyPipeline import celery_app
 from engine.tasks.config import WorkerConfig
 from engine.tasks.message import MessageType
-from engine.tasks.signal import FinishSignal
+from engine.tasks.signal import FinishedSignal
 from engine.tasks.utils import UniqueKeySerialCounter
 
 
@@ -82,6 +82,10 @@ class WorkerBaseTask(BaseTask):
 
         self.timeout_ups = UniqueKeySerialCounter(allowed_keys=self.upstreams)
 
+        self.preprocessed_message_cnt = 0
+
+        self.postprocessed_message_cnt = 0
+
         # set a connection to upstream message queue for reading
         if not hasattr(self, '_mq_conn'):
             self._mq_conn = get_redis_connection('LazyPipeline')
@@ -106,6 +110,14 @@ class WorkerBaseTask(BaseTask):
     def destroy(self):
         """ delete temporary executable file and dir """
         shutil.rmtree(self.worker_dir, ignore_errors=True)
+
+    @property
+    def statistics(self):
+        return {'job_id': self.job_id,
+                'node_id': self.node_id,
+                'preprocessed_message_cnt': self.preprocessed_message_cnt,
+                'postprocessed_message_cnt': self.postprocessed_message_cnt,
+                'state': self.worker_state}
 
     @property
     def job_id(self):
@@ -188,10 +200,10 @@ class WorkerBaseTask(BaseTask):
         return True
 
     def pull_data(self):
-        raise NotImplementedError("Subcalss not implemented yet")
+        raise NotImplementedError("pull_data() subcalss not implemented yet")
 
     def push_data(self, message_body):
-        raise NotImplementedError("Subclass not implemented yet")
+        raise NotImplementedError("push_data() subclass not implemented yet")
 
     def send_timeout_message(self):
         for down in self.downstreams:
@@ -266,31 +278,34 @@ class StreamDataWorker(WorkerBaseTask):
     def config(self, node_conf):
         super().config(node_conf)
 
-        self.upstream_data = {}
+        self.upstream_data = OrderedDict()
+        self.ret_data = OrderedDict()
         for up in self.upstreams:
-            self.upstream_data[up] = {'data': deque()}
+            self.upstream_data[up] = {'sender': up, 'data': deque()}
             self.ret_data[up] = {'data': []}
 
     def pull_data(self):
         """ Invoke once and return one line of data at a time.
         raise Finished signal if all upstreams are finished
         """
-        while True:
+        while len(self.upstreams) > 0:
             msg = self._recv_message()
 
             up = msg['sender']
 
             if msg['type'] == MessageType.CTRL:
-                if msg['status']['is_finished'] is True:
-                    self.finished_ups[up] += 1
                 if msg['status']['is_timeout'] is True:
                     self.timeout_ups[up] += 1
+                elif msg['status']['is_finished'] is True:
+                    self.finished_ups[up] += 1
+                else:
+                    continue
             else:
-                self.upstream_data[up]['data'].append(msg)
+                self.upstream_data[up]['data'].append(msg['data'])
 
             complete_cnt = len(self.finished_ups) + len(self.timeout_ups)
             if complete_cnt >= len(self.upstreams):
-                raise FinishSignal()  # raise finished signal
+                raise FinishedSignal()  # raise finished signal
 
             useable_ups = list(filter(lambda up: len(self.upstream_data[up]['data']) > 0,
                                       self.upstream_data))
@@ -302,16 +317,30 @@ class StreamDataWorker(WorkerBaseTask):
                     self.ret_data[up]['data'].append(self.upstream_data[up]['data'].popleft())
                 except Exception:
                     self.ret_data[up]['data'] = []
-            return self.ret_data
 
+            self.preprocessed_message_cnt += 1
 
-class ConvergenceStreamDataWorker(StreamDataWorker):
-    """ Worker that receive data from upstream(s) at a time.
-    Could be useful in common filter processing
-    """
+            yield self.ret_data
 
-    def config(self, node_conf):
-        pass
+        yield self.ret_data
+        raise FinishedSignal()  # raise finished signal
 
-    def pull_data(self):
-        pass
+    def push_data(self, message_body):
+        msg = self._pack_message(message_body)
+
+        for down in self.downstreams:
+            self._send_message(down, msg)
+
+        if len(self.downstreams) > 0:
+            self.postprocessed_message_cnt += 1
+
+# class ConvergenceStreamDataWorker(StreamDataWorker):
+#     """ Worker that receive data from upstream(s) at a time.
+#     Could be useful in common filter processing
+#     """
+
+#     def config(self, node_conf):
+#         pass
+
+#     def pull_data(self):
+#         pass

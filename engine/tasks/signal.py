@@ -2,7 +2,7 @@ class PipelineSignal(Exception):
     """ """
 
 
-class FinishSignal(PipelineSignal):
+class FinishedSignal(PipelineSignal):
     """ Indicate task is finished """
 
 
