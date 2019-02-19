@@ -22,8 +22,11 @@ TOOD
 ## Development Roadmap
 
 - LazyPipeline Engine
+    - [x] BatchDataWorker
+    - [x] StreamDataWorker
+    - [ ] ConvergenceDataWorker
+    - [ ] WorkerController
     - [ ] Pipeline with schedulablity
-    - [x] Pipeline with BatchDataWorker, StreamDataWorker, ConvergenceDataWorker
     - [x] Test demo
     - [ ] Dockerization
 - LazyPipeline Core
