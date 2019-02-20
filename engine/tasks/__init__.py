@@ -8,8 +8,8 @@ from celery.utils.log import get_task_logger
 from celery.exceptions import SoftTimeLimitExceeded
 
 from LazyPipeline import celery_app
-from engine.tasks.base import BatchDataWorker
-from engine.tasks.base import StreamDataWorker
+from engine.tasks.batch_worker import BatchDataWorker
+from engine.tasks.stream_worker import StreamDataWorker
 from engine.tasks.signal import FinishedSignal
 
 
