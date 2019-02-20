@@ -183,11 +183,13 @@ class StreamDataWorker(TestCase):
         (worker1) \
                    —> (worker3) -> discard output
         (worker2) /
+
+        worker1 and worker2 has the same amount output
         """
         job_id = str(uuid.uuid4())
 
         worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
-        worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x5_script)
+        worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
         worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_2ups_script)
 
         worker1_conf.add_downstream(worker3_conf)
@@ -224,6 +226,8 @@ class StreamDataWorker(TestCase):
         (worker2)   —> (worker4) -> discard output
                    /
         (worker3) /
+
+        worker1, worker2 and worker3 has the same amount output
         """
         job_id = str(uuid.uuid4())
 

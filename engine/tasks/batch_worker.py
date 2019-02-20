@@ -38,9 +38,11 @@ class BatchDataWorker(WorkerBaseTask):
 
                 complete_cnt = len(self.finished_ups) + len(self.timeout_ups)
                 if complete_cnt >= len(self.upstreams):
-                    return self.upstream_data
+                    break
             else:
                 self.upstream_data[up]['data'].append(msg['data'])
+
+        self.preprocessed_message_count += 1
 
         return self.upstream_data
 
@@ -49,3 +51,6 @@ class BatchDataWorker(WorkerBaseTask):
 
         for down in self.downstreams:
             self._send_message(down, msg)
+
+        if len(self.downstreams) > 0:
+            self.postprocessed_message_count += 1
