@@ -60,10 +60,17 @@ class WorkerBaseTask(BaseTask):
     """
 
     ignore_result = False
+
     retry = False
+
+    track_started = True
+
     eta = timedelta(seconds=4)
+
     soft_time_limit = 3600
+
     time_limit = soft_time_limit + 5
+
     expires = 300
 
     worker_home = settings.BASE_DIR
