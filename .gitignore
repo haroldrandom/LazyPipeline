@@ -113,3 +113,6 @@ supervisor/
 
 # log
 *.log*
+
+# vscode
+.vscode/
