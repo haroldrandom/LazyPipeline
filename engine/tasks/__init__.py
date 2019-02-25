@@ -3,11 +3,13 @@ import json
 import shlex
 import copy
 import subprocess
+import traceback
 
 from celery.utils.log import get_task_logger
 from celery.exceptions import SoftTimeLimitExceeded
 
 from LazyPipeline import celery_app
+from engine.tasks import worker_states
 from engine.tasks.batch_worker import BatchDataWorker
 from engine.tasks.stream_worker import StreamDataWorker
 from engine.tasks.signal import FinishedSignal
@@ -17,13 +19,14 @@ logger = get_task_logger(__name__)
 
 
 @celery_app.task(base=BatchDataWorker)
-def batch_data_worker(conf, reserve_output=False):
+def batch_data_worker(conf):
     self = batch_data_worker
 
     try:
         self.init(conf)  # init this worker
     except Exception:
         logger.error('[TASK_ID=%s] - %s' % (self.node_id, 'CONFIG ERROR'))
+        logger.error('[TASK_ID=%s] - %s' % (self.node_id, str(traceback.format_exc())))
         self.destroy()
         return
 
@@ -42,26 +45,26 @@ def batch_data_worker(conf, reserve_output=False):
             cmd, stderr=subprocess.STDOUT, env=new_env)
         output = output.decode('utf-8') or None
 
+        print(output)
+
         self.push_data(output)
-        self.send_finished_message()    # send finished message
     except subprocess.CalledProcessError as exc:
         logger.error('[TASK_ID=%s] - %s' % (self.node_id, 'RET_CODE ERROR'))
         logger.error('[TASK_ID=%s] - %s' % (self.node_id, exc.output.decode('utf-8')))
+        self.worker_state = worker_states.RUNTIME_ERROR
     except SoftTimeLimitExceeded:
         logger.error('[TASK_ID=%s] - %s' % (self.node_id, 'TIMEOUT'))
-        self.send_timeout_message()
-    except Exception as e:
+        self.worker_state = worker_states.TIMEOUT
+    except Exception:
         logger.error('[TASK_ID=%s] - %s' % (self.node_id, 'UNHANLDE ERROR'))
-        logger.error('[TASK_ID=%s] - %s' % (self.node_id, str(e)))
+        logger.error('[TASK_ID=%s] - %s' % (self.node_id, str(traceback.format_exc())))
+        self.worker_state = worker_states.RUNTIME_ERROR
     finally:
         logger.info('[TASK_ID=%s] - %s' % (self.node_id, 'FINISHED'))
-        self.destroy()  # delete external resource
+        self.destroy()      # delete external resource
+        self.send_finished_message()    # send finished message
 
-        reserve_output = output if reserve_output is True else None
-        return {'job_id': self.job_id,
-                'node_id': self.node_id,
-                'output': reserve_output,
-                'state': self.worker_state}
+        return self.statistics
 
 
 @celery_app.task(base=StreamDataWorker)
@@ -79,7 +82,6 @@ def stream_data_worker(conf, reserve_output=False):
     try:
         while True:
             messages = next(message_puller) or {}
-            # print('message=', messages)
 
             new_env = copy.deepcopy(dict(os.environ))   # TODO env must be manicured
 
@@ -91,8 +93,6 @@ def stream_data_worker(conf, reserve_output=False):
             output = subprocess.check_output(
                 cmd, stderr=subprocess.STDOUT, env=new_env)
             output = output.decode('utf-8') or None
-
-            # print('output=', output)
 
             self.push_data(output)
     except FinishedSignal:

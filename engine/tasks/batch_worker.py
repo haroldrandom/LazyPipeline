@@ -1,6 +1,7 @@
 from collections import OrderedDict
 
 from engine.tasks.base import WorkerBaseTask
+from engine.tasks import worker_states
 from engine.tasks.message import MessageType
 
 
@@ -23,34 +24,31 @@ class BatchDataWorker(WorkerBaseTask):
         otherwise None
         """
 
+        self.worker_state = worker_states.RUNNING
+
         while len(self.upstreams) > 0:
             msg = self._recv_message()
 
             up = msg['sender']
 
             if msg['type'] == MessageType.CTRL:
-                if msg['status']['is_timeout'] is True:
+                if worker_states.TIMEOUT == msg['state']:
                     self.timeout_ups[up] += 1
-                elif msg['status']['is_finished'] is True:
+                elif worker_states.FINISHED == msg['state']:
                     self.finished_ups[up] += 1
                 else:
                     continue
+
+                self._recv_ctrl_message_count += 1
 
                 complete_cnt = len(self.finished_ups) + len(self.timeout_ups)
                 if complete_cnt >= len(self.upstreams):
                     break
             else:
+                self._recv_data_message_count += 1
+
                 self.upstream_data[up]['data'].append(msg['data'])
 
         self.preprocessed_message_count += 1
 
         return self.upstream_data
-
-    def push_data(self, message_body):
-        msg = self._pack_message(message_body)
-
-        for down in self.downstreams:
-            self._send_message(down, msg)
-
-        if len(self.downstreams) > 0:
-            self.postprocessed_message_count += 1

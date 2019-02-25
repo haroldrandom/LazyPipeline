@@ -36,7 +36,11 @@ class StreamDataWorker(WorkerBaseTask):
                     self.finished_ups[up] += 1
                 else:
                     continue
+
+                self._recv_ctrl_message_count += 1
             else:
+                self._recv_data_message_count += 1
+
                 self.upstream_data[up]['data'].append(msg['data'])
 
             complete_cnt = len(self.finished_ups) + len(self.timeout_ups)

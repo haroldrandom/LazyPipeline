@@ -4,26 +4,19 @@ import shutil
 import stat
 from datetime import timedelta
 from collections import deque
-from collections import OrderedDict
 
 from django.conf import settings
 from django_redis import get_redis_connection
 from celery.utils.log import get_task_logger
 
 from LazyPipeline import celery_app
+from engine.tasks import worker_states
 from engine.tasks.config import WorkerConfig
 from engine.tasks.message import MessageType
-from engine.tasks.signal import FinishedSignal
 from engine.tasks.utils import UniqueKeySerialCounter
 
 
 logger = get_task_logger(__name__)
-
-
-STATE_NOT_INIT = 'NOT INIT'
-STATE_INIT = 'INIT'
-STATE_FINISHED = 'FINISHED'
-STATE_TIMEOUT = 'TIMEOUT'
 
 
 class BaseTask(celery_app.Task):
@@ -75,7 +68,7 @@ class WorkerBaseTask(BaseTask):
 
     worker_home = settings.BASE_DIR
 
-    worker_state = STATE_NOT_INIT
+    worker_state = worker_states.INIT
 
     def config(self, node_conf):
         self.worker_conf = WorkerConfig.config_from_object(node_conf)
@@ -89,15 +82,26 @@ class WorkerBaseTask(BaseTask):
 
         self.timeout_ups = UniqueKeySerialCounter(allowed_keys=self.upstreams)
 
+        self._recv_message_count = 0
+        self._recv_ctrl_message_count = 0
+        self._recv_data_message_count = 0
+
+        self._sent_message_count = 0
+        self._sent_ctrl_message_count = 0
+        self._sent_data_message_count = 0
+
         self.preprocessed_message_count = 0
 
         self.postprocessed_message_count = 0
 
+        # about sender config
+        self._sender_buffer_size = self.worker_conf.sender_buffer_size
+        self._sender_sepatator = self.worker_conf.sender_separator
+        self._sender_buffer = deque()
+
         # set a connection to upstream message queue for reading
         if not hasattr(self, '_mq_conn'):
             self._mq_conn = get_redis_connection('LazyPipeline')
-
-        self.worker_state = STATE_INIT
 
     def init(self, node_conf):
         # set worker runtime configuration
@@ -114,17 +118,28 @@ class WorkerBaseTask(BaseTask):
             logger.warn('can not create worker script: %s' % str(e))
             self.destroy()
 
+        self.worker_state = worker_states.READY
+
     def destroy(self):
         """ delete temporary executable file and dir """
         shutil.rmtree(self.worker_dir, ignore_errors=True)
 
     @property
     def statistics(self):
-        return {'job_id': self.job_id,
-                'node_id': self.node_id,
-                'preprocessed_message_count': self.preprocessed_message_count,
-                'postprocessed_message_count': self.postprocessed_message_count,
-                'state': self.worker_state}
+        s = {
+            'job_id': self.job_id,
+            'node_id': self.node_id,
+            'preprocessed_message_count': self.preprocessed_message_count,
+            'postprocessed_message_count': self.postprocessed_message_count,
+            'recv_message_count': self._recv_message_count,
+            'sent_message_count': self._sent_message_count,
+            'recv_ctrl_message_count': self._recv_ctrl_message_count,
+            'recv_data_message_count': self._recv_data_message_count,
+            'sent_ctrl_message_count': self._sent_ctrl_message_count,
+            'sent_data_message_count': self._sent_data_message_count,
+            'state': str(self.worker_state)
+        }
+        return s
 
     @property
     def job_id(self):
@@ -151,7 +166,7 @@ class WorkerBaseTask(BaseTask):
         return self.worker_file
 
     def _recv_message(self):
-        if self.worker_state != STATE_INIT:
+        if self.worker_state < worker_states.READY:
             raise Exception("Invoke init() first")
 
         msg = self._mq_conn.brpop(self.node_id, timeout=self.expires)
@@ -161,37 +176,52 @@ class WorkerBaseTask(BaseTask):
             logger.warn('received invalid msg: {0}'.format(msg))
             msg = self._mq_conn.brpop(self.node_id, timeout=self.expires)
 
+        self._recv_message_count += 1
+
         return msg
 
-    def _pack_message(self, message_body,
-                      type_=MessageType.DATA,
-                      is_finished=False, is_timeout=False):
+    def _pack_message(self, message_body, type_=MessageType.DATA):
         c = {
             'sender': self.node_id,
             'data': message_body,
             'type': type_,
-            'status': {'is_finished': is_finished, 'is_timeout': is_timeout}
+            'state': self.worker_state
         }
         return json.dumps(c)
 
-    def _send_message(self, downstream, message):
-        if self.worker_state == STATE_NOT_INIT:
+    def _send_message(self, downstream, message, message_type):
+        if self.worker_state < worker_states.READY:
             raise Exception("Invoke init() first")
+
+        message = self._pack_message(message, message_type)
+
+        if message_type == MessageType.DATA:
+            self._sent_data_message_count += 1
+        elif message_type == MessageType.CTRL:
+            self._sent_ctrl_message_count += 1
+        else:
+            raise Exception('Unsupported message type: ' + message_type)
+        self._sent_message_count += 1
 
         self._mq_conn.lpush(downstream, message)
         self._mq_conn.expire(downstream, self.expires)
+
+    def _clear_buffer(self):
+        while len(self._sender_buffer) > 0:
+            msg = self._sender_buffer.popleft()
+
+            for down in self.downstreams:
+                self._send_message(down, msg, MessageType.DATA)
 
     def _validate_message(self, msg):
         try:
             if (
                 (not msg) or
                 ('sender' not in msg) or ('data' not in msg) or
-                ('type' not in msg) or ('status' not in msg)
+                ('type' not in msg) or ('state' not in msg)
             ):
                 raise Exception('invalid message')
 
-            # check existence
-            msg['status']['is_finished'], msg['status']['is_timeout']
         except Exception as e:
             logger.warn(e)
             logger.info('received invalid message %s' % str(msg))
@@ -210,24 +240,42 @@ class WorkerBaseTask(BaseTask):
         raise NotImplementedError("pull_data() subcalss not implemented yet")
 
     def push_data(self, message_body):
-        raise NotImplementedError("push_data() subclass not implemented yet")
+        if message_body is None:
+            raise AttributeError('message_body must not be None')
+
+        if isinstance(self._sender_sepatator, str):
+            tmp = message_body.strip().split(self._sender_sepatator)
+            self._sender_buffer.extend(tmp)
+        else:
+            self._sender_buffer.append(message_body)
+
+        if (
+            self._sender_buffer_size > 0 and
+            len(self._sender_buffer) >= self._sender_buffer_size
+        ):
+            t = self._sender_buffer_size
+            while t > 0 and len(self.downstreams) > 0:
+                msg = self._sender_buffer.popleft()
+                for down in self.downstreams:
+                    self._send_message(down, msg, MessageType.DATA)
+                t -= 1
 
     def send_timeout_message(self):
-        for down in self.downstreams:
-            msg = self._pack_message(
-                [], MessageType.CTRL, is_finished=True, is_timeout=True)
-            self._send_message(down, msg)
+        self.worker_state = worker_states.TIMEOUT
 
-        self.worker_state = STATE_TIMEOUT
+        self._clear_buffer()
+
+        for down in self.downstreams:
+            self._send_message(down, [], MessageType.CTRL)
 
     def send_finished_message(self):
-        for down in self.downstreams:
-            msg = self._pack_message(
-                [], MessageType.CTRL, is_finished=True, is_timeout=False)
-            self._send_message(down, msg)
+        if self.worker_state == worker_states.RUNNING:
+            self.worker_state = worker_states.FINISHED
 
-        if self.worker_state != STATE_TIMEOUT:
-            self.worker_state = STATE_FINISHED
+        self._clear_buffer()
+
+        for down in self.downstreams:
+            self._send_message(down, [], MessageType.CTRL)
 
 
 # class ConvergenceStreamDataWorker(StreamDataWorker):

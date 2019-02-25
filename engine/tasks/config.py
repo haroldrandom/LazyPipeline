@@ -17,6 +17,15 @@ class WorkerConfig():
         self._downstreams = []
         self._script = script
 
+        # sender config
+
+        # send buffer at most buffer_size when buffer size is equal to buffer_size,
+        # -1 means send buffer at once
+        self._sender_buffer_size = -1
+        # split worker's output using separator if set,
+        # otherwise, append it to the buffer intactly
+        self._sender_separator = None
+
     @property
     def job_id(self):
         return self._job_id
@@ -38,12 +47,26 @@ class WorkerConfig():
         return self._script
 
     @property
+    def sender_buffer_size(self):
+        return self._sender_buffer_size
+
+    @property
+    def sender_separator(self):
+        return self._sender_separator
+
+    @property
     def to_dict(self):
-        c = {'job_id': self._job_id,
-             'node_id': self._node_id,
-             'script': self._script,
-             'upstreams': self._upstreams,
-             'downstreams': self._downstreams}
+        c = {
+            'job_id': self._job_id,
+            'node_id': self._node_id,
+            'script': self._script,
+            'upstreams': self._upstreams,
+            'downstreams': self._downstreams,
+            'sender': {
+                'buffer_size': self._sender_buffer_size,
+                'separator': self._sender_separator
+            }
+        }
         return c
 
     def __str__(self):
@@ -68,7 +91,29 @@ class WorkerConfig():
         dws = config.get('downstreams') or []
         wc.add_downstreams(dws)
 
+        if config.get('sender'):
+            wc.set_sender(config['sender']['buffer_size'],
+                          config['sender']['separator'])
+
         return wc
+
+    def set_sender(self, buffer_size=-1, separator=None):
+        """
+        @param buffer_size,
+            send buffer at most buffer_size
+            wwhen buffer size is equal to buffer_size.
+            -1 means send buffer at last one
+        @param separator
+            split worker's output using separator if set.
+            otherwise, append it to the buffer intactly
+        """
+
+        if buffer_size > 0:
+            assert separator is not None
+            assert isinstance(separator, str)
+
+        self._sender_buffer_size = buffer_size
+        self._sender_separator = separator
 
     def add_upstream(self, up):
         if isinstance(up, WorkerConfig):
