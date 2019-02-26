@@ -49,8 +49,6 @@ class ControllerBaseTask(BaseTask):
 
 
 class WorkerBaseTask(BaseTask):
-    """ Parse config and run script
-    """
 
     ignore_result = False
 

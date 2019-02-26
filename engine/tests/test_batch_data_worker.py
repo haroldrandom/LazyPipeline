@@ -856,59 +856,61 @@ class BatchDataWorkerTimeoutTest(TestCase):
         self.assertEqual(worker_states.FINISHED, r4['state'])
         self.assertEqual(r3['recv_data_message_count'], 1)
 
-#     def test_timeout_2ups_1down_2(self):
-#         """
-#         Test worker with 2ups and 1down
+    def test_timeout_2ups_1down_2(self):
+        """
+        Test worker with 2ups and 1down
 
-#         (worker1) \
-#                    —> (worker3) -> (worker4) -> discard output
-#         (worker2) /
+        (worker1) \
+                   —> (worker3) -> (worker4) -> discard output
+        (worker2) /
 
-#         worker3 will timeout before any upstreams' output arrive
-#         """
-#         job_id = str(uuid.uuid4())
+        worker3 will timeout and exit before any upstreams' output arrive
+        therefor, worker4 will get nothing from upstream and its script
+        can not propertly as expected
+        """
+        job_id = str(uuid.uuid4())
 
-#         worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_3s_script)
-#         worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_10s_script)
-#         worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_2ups_script)
-#         worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
+        worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_3s_script)
+        worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_10s_script)
+        worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_2ups_script)
+        worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
 
-#         worker1_conf.add_downstream(worker3_conf)
+        worker1_conf.add_downstream(worker3_conf)
 
-#         worker2_conf.add_downstream(worker3_conf)
+        worker2_conf.add_downstream(worker3_conf)
 
-#         worker3_conf.add_upstreams([worker1_conf, worker2_conf])
-#         worker3_conf.add_downstream(worker4_conf)
+        worker3_conf.add_upstreams([worker1_conf, worker2_conf])
+        worker3_conf.add_downstream(worker4_conf)
 
-#         worker4_conf.add_upstream(worker3_conf)
+        worker4_conf.add_upstream(worker3_conf)
 
-#         worker1_task = batch_data_worker.apply_async(
-#             args=[worker1_conf.to_dict],
-#             kwargs={'reserve_output': True})
-#         worker2_task = batch_data_worker.apply_async(
-#             args=[worker2_conf.to_dict])
-#         worker3_task = batch_data_worker.apply_async(
-#             args=[worker3_conf.to_dict],
-#             kwargs={'reserve_output': True},
-#             soft_time_limit=2)
-#         worker4_task = batch_data_worker.apply_async(
-#             args=[worker4_conf.to_dict],
-#             kwargs={'reserve_output': True})
+        worker1_task = batch_data_worker.apply_async(args=[worker1_conf.to_dict])
+        worker2_task = batch_data_worker.apply_async(
+            args=[worker2_conf.to_dict])
+        worker3_task = batch_data_worker.apply_async(
+            args=[worker3_conf.to_dict],
+            soft_time_limit=2)
+        worker4_task = batch_data_worker.apply_async(args=[worker4_conf.to_dict])
 
-#         r1 = worker1_task.get()
-#         self.assertEqual(r1['state'], 'FINISHED')
-#         self.assertIsNotNone(r1['output'])
+        r1 = worker1_task.get()
+        self.assertEqual(worker1_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r1['state'])
+        self.assertEqual(r1['sent_data_message_count'], 1)
 
-#         r2 = worker2_task.get()
-#         self.assertEqual(r2['state'], 'FINISHED')
+        r2 = worker2_task.get()
+        self.assertEqual(worker2_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r2['state'])
+        self.assertEqual(r1['sent_data_message_count'], 1)
 
-#         r3 = worker3_task.get()
-#         self.assertEqual(r3['state'], 'TIMEOUT')
-#         self.assertIsNone(r3['output'])
+        r3 = worker3_task.get()
+        self.assertEqual(worker3_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.TIMEOUT, r3['state'])
+        self.assertEqual(r3['recv_data_message_count'], 0)
 
-#         r4 = worker4_task.get()
-#         self.assertEqual(r4['state'], 'FINISHED')
-#         self.assertIsNone(r4['output'])
+        r4 = worker4_task.get()
+        self.assertEqual(worker4_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.RUNTIME_ERROR, r4['state'])
+        self.assertEqual(r4['recv_data_message_count'], 0)
 
 
 class BatchDataWorkerExpiresTest(TestCase):
