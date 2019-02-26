@@ -679,6 +679,10 @@ class BatchDataWorkerSenderTest(TestCase):
 
 
 class BatchDataWorkerTimeoutTest(TestCase):
+    """
+    Test timeout situation with default sender settings
+    """
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -866,7 +870,7 @@ class BatchDataWorkerTimeoutTest(TestCase):
 
         worker3 will timeout and exit before any upstreams' output arrive
         therefor, worker4 will get nothing from upstream and its script
-        can not propertly as expected
+        can not behave propertly as expected
         """
         job_id = str(uuid.uuid4())
 
@@ -911,6 +915,93 @@ class BatchDataWorkerTimeoutTest(TestCase):
         self.assertEqual(worker4_task.state, states.SUCCESS)
         self.assertEqual(worker_states.RUNTIME_ERROR, r4['state'])
         self.assertEqual(r4['recv_data_message_count'], 0)
+
+
+class BatchDataWorkerTimeoutSenderTest(TestCase):
+    """
+    Test timeout situation with different sender settings
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+
+        cls.scripts_home = settings.BASE_DIR + '/engine/tests/test_worker_scripts/'
+
+        with open(cls.scripts_home + 'ts_emitter_every_1s.py') as fd:
+            cls.ts_emitter_1s_script = fd.read()
+
+        with open(cls.scripts_home + 'ts_emitter_every_3s.py') as fd:
+            cls.ts_emitter_3s_script = fd.read()
+
+        with open(cls.scripts_home + 'ts_emitter_every_5s.py') as fd:
+            cls.ts_emitter_5s_script = fd.read()
+
+        with open(cls.scripts_home + 'ts_emitter_every_10s.py') as fd:
+            cls.ts_emitter_10s_script = fd.read()
+
+        with open(cls.scripts_home + 'ts_emitter_x1.py') as fd:
+            cls.ts_emitter_x1_script = fd.read()
+
+        with open(cls.scripts_home + 'ts_emitter_x3.py') as fd:
+            cls.ts_emitter_x3_script = fd.read()
+
+        with open(cls.scripts_home + 'ts_emitter_x5.py') as fd:
+            cls.ts_emitter_x5_script = fd.read()
+
+        with open(cls.scripts_home + 'ts_emitter_x10.py') as fd:
+            cls.ts_emitter_x10_script = fd.read()
+
+        with open(cls.scripts_home + 'ts_emitter_every_10s.py') as fd:
+            cls.ts_emitter_10s_script = fd.read()
+
+        with open(cls.scripts_home + 'data_worker_1ups.py') as fd:
+            cls.data_worker_1ups_script = fd.read()
+
+        with open(cls.scripts_home + 'data_worker_2ups.py') as fd:
+            cls.data_worker_2ups_script = fd.read()
+
+        with open(cls.scripts_home + 'data_worker_3ups.py') as fd:
+            cls.data_worker_3ups_script = fd.read()
+
+    def test_timeout_1up_0down(self):
+        """
+        Test worker when worker2 timeout but worker1 doesn't
+
+        (worker1) --> (worker2)
+
+        worekr2 will timeout and exit in 2s
+        but worker1 will sent its output after 3s so, worker2 will get nothing
+        """
+        job_id = str(uuid.uuid4())
+
+        worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_3s_script)
+        worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
+
+        worker1_conf.add_downstream(worker2_conf)
+        worker1_conf.set_sender(buffer_size=1, separator='\n')
+
+        worker2_conf.add_upstream(worker1_conf)
+
+        worker1_task = batch_data_worker.apply_async(args=[worker1_conf.to_dict])
+
+        worker2_task = batch_data_worker.apply_async(
+            args=[worker2_conf.to_dict],
+            soft_time_limit=2)
+
+        r1 = worker1_task.get()
+        self.assertEqual(worker1_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r1['state'])
+        self.assertEqual(r1['recv_message_count'], 0)
+        self.assertEqual(r1['sent_message_count'], 4)
+        self.assertEqual(r1['sent_data_message_count'], 3)
+
+        r2 = worker2_task.get()
+        self.assertEqual(worker2_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.TIMEOUT, r2['state'])
+        self.assertEqual(r2['recv_message_count'], 0)
+        self.assertEqual(r2['sent_message_count'], 0)
+        self.assertEqual(r2['sent_data_message_count'], 0)
 
 
 class BatchDataWorkerExpiresTest(TestCase):
