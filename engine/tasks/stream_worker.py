@@ -72,11 +72,6 @@ class StreamDataWorker(WorkerBaseTask):
         if len(self.upstreams) == 0:
             return False
 
-        if self.node_id == '33':
-            print('-' * 30 + 'before' + '-' * 30)
-            print(self.ret_data)
-            print(self.upstream_data)
-
         for up in self.upstreams:
             if (
                 (self.finished_ups[up] != 0 or self.timeout_ups[up] != 0) and
@@ -95,14 +90,7 @@ class StreamDataWorker(WorkerBaseTask):
                     self.ret_data[up]['data'] = [self.upstream_data[up]['data'].popleft()]
                     ready_ups += 1
 
-        if self.node_id == '33':
-            print('drained_ups=%d ready_ups=%d' % (drained_ups, ready_ups))
-
         if ready_ups == len(self.upstreams):
-            if self.node_id == '33':
-                print('-' * 30 + 'after' + '-' * 30)
-                print(self.ret_data)
-                print(self.upstream_data)
             return True
         elif (
             drained_ups != 0 and ready_ups != 0 and

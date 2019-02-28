@@ -360,7 +360,7 @@ class StreamDataWorker(TestCase):
 
         worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
         worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x5_script)
-        worker3_conf = WorkerConfig(job_id, str(33), self.data_worker_2ups_script)
+        worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_2ups_script)
         worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
 
         worker1_conf.add_downstream(worker3_conf)
@@ -425,8 +425,8 @@ class StreamDataWorker(TestCase):
 
         worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
         worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x5_script)
-        worker3_conf = WorkerConfig(job_id, str(33), self.data_worker_2ups_join_script)
-        worker4_conf = WorkerConfig(job_id, str(44), self.data_worker_1ups_script)
+        worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_2ups_join_script)
+        worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
 
         worker1_conf.add_downstream(worker3_conf)
         worker1_conf.set_sender(buffer_size=1, separator='\n')
@@ -620,34 +620,489 @@ class StreamDataWorker(TestCase):
         self.assertEqual(r5['recv_message_count'], 4)
         self.assertEqual(r5['recv_data_message_count'], 3)
 
-    # def test_3ups_0down(self):
-    #     """
-    #     Test worker(worker4) with 2 upstreams and 0 downstream
+    def test_3ups_0down(self):
+        """
+        Test worker(worker4) with 3 upstreams and 0 downstream
+        with default sender settings
 
-    #     (worker1) \
-    #                \
-    #     (worker2)   —> (worker4) -> discard output
-    #                /
-    #     (worker3) /
+        (worker1) \
+                   \
+        (worker2)   —> (worker4) -> discard output
+                   /
+        (worker3) /
 
-    #     worker1, worker2 and worker3 has the same amount output
-    #     """
-    #     job_id = str(uuid.uuid4())
+        """
+        job_id = str(uuid.uuid4())
 
-    #     worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
-    #     worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x5_script)
-    #     worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
-    #     worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_3ups_script)
+        worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
+        worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
+        worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x5_script)
+        worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_3ups_script)
 
-    #     worker1_conf.add_downstream(worker4_conf)
+        worker1_conf.add_downstream(worker4_conf)
 
-    #     worker2_conf.add_downstream(worker4_conf)
+        worker2_conf.add_downstream(worker4_conf)
 
-    #     worker3_conf.add_downstream(worker4_conf)
+        worker3_conf.add_downstream(worker4_conf)
 
-    #     worker4_conf.add_upstreams([worker1_conf, worker2_conf, worker3_conf])
+        worker4_conf.add_upstreams([worker1_conf, worker2_conf, worker3_conf])
 
-    #     worker1_task = stream_data_worker.apply_async(args=[worker1_conf.to_dict])
-    #     worker2_task = stream_data_worker.apply_async(args=[worker2_conf.to_dict])
-    #     worker3_task = stream_data_worker.apply_async(args=[worker3_conf.to_dict])
-    #     worker4_task = stream_data_worker.apply_async(args=[worker4_conf.to_dict])
+        worker1_task = stream_data_worker.apply_async(args=[worker1_conf.to_dict])
+        worker2_task = stream_data_worker.apply_async(args=[worker2_conf.to_dict])
+        worker3_task = stream_data_worker.apply_async(args=[worker3_conf.to_dict])
+        worker4_task = stream_data_worker.apply_async(args=[worker4_conf.to_dict])
+
+        r1 = worker1_task.get()
+        self.assertEqual(worker1_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r1['state'])
+        self.assertEqual(r1['recv_message_count'], 0)
+        self.assertEqual(r1['sent_message_count'], 2)
+        self.assertEqual(r1['sent_data_message_count'], 1)
+
+        r2 = worker2_task.get()
+        self.assertEqual(worker2_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r2['state'])
+        self.assertEqual(r2['recv_message_count'], 0)
+        self.assertEqual(r2['sent_message_count'], 2)
+        self.assertEqual(r2['sent_data_message_count'], 1)
+
+        r3 = worker3_task.get()
+        self.assertEqual(worker3_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r3['state'])
+        self.assertEqual(r3['recv_message_count'], 0)
+        self.assertEqual(r3['sent_message_count'], 2)
+        self.assertEqual(r3['sent_data_message_count'], 1)
+
+        r4 = worker4_task.get()
+        self.assertEqual(worker4_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r4['state'])
+        self.assertEqual(r4['recv_message_count'], 6)
+        self.assertEqual(r4['recv_data_message_count'], 3)
+        self.assertEqual(r4['sent_message_count'], 0)
+
+    def test_3ups_0down_2(self):
+        """
+        Test worker(worker4) with 3 upstreams and 0 downstream
+        with different sender settings
+
+        (worker1) \
+                   \
+        (worker2)   —> (worker4) -> discard output
+                   /
+        (worker3) /
+
+        """
+        job_id = str(uuid.uuid4())
+
+        worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
+        worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
+        worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x5_script)
+        worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_3ups_script)
+
+        worker1_conf.set_sender(buffer_size=1, separator='\n')
+        worker1_conf.add_downstream(worker4_conf)
+
+        worker2_conf.add_downstream(worker4_conf)
+
+        worker3_conf.add_downstream(worker4_conf)
+
+        worker4_conf.add_upstreams([worker1_conf, worker2_conf, worker3_conf])
+
+        worker1_task = stream_data_worker.apply_async(args=[worker1_conf.to_dict])
+        worker2_task = stream_data_worker.apply_async(args=[worker2_conf.to_dict])
+        worker3_task = stream_data_worker.apply_async(args=[worker3_conf.to_dict])
+        worker4_task = stream_data_worker.apply_async(args=[worker4_conf.to_dict])
+
+        r1 = worker1_task.get()
+        self.assertEqual(worker1_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r1['state'])
+        self.assertEqual(r1['recv_message_count'], 0)
+        self.assertEqual(r1['sent_message_count'], 4)
+        self.assertEqual(r1['sent_data_message_count'], 3)
+
+        r2 = worker2_task.get()
+        self.assertEqual(worker2_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r2['state'])
+        self.assertEqual(r2['recv_message_count'], 0)
+        self.assertEqual(r2['sent_message_count'], 2)
+        self.assertEqual(r2['sent_data_message_count'], 1)
+
+        r3 = worker3_task.get()
+        self.assertEqual(worker3_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r3['state'])
+        self.assertEqual(r3['recv_message_count'], 0)
+        self.assertEqual(r3['sent_message_count'], 2)
+        self.assertEqual(r3['sent_data_message_count'], 1)
+
+        r4 = worker4_task.get()
+        self.assertEqual(worker4_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r4['state'])
+        self.assertEqual(r4['recv_message_count'], 8)
+        self.assertEqual(r4['recv_data_message_count'], 5)
+        self.assertEqual(r4['sent_message_count'], 0)
+
+    def test_3ups_0down_3(self):
+        """
+        Test worker(worker4) with 3 upstreams and 0 downstream
+        with different sender settings
+
+        (worker1) \
+                   \
+        (worker2)   —> (worker4) -> discard output
+                   /
+        (worker3) /
+
+        """
+        job_id = str(uuid.uuid4())
+
+        worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
+        worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
+        worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x5_script)
+        worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_3ups_script)
+
+        worker1_conf.set_sender(buffer_size=1, separator='\n')
+        worker1_conf.add_downstream(worker4_conf)
+
+        worker2_conf.set_sender(buffer_size=1, separator='\n')
+        worker2_conf.add_downstream(worker4_conf)
+
+        worker3_conf.add_downstream(worker4_conf)
+
+        worker4_conf.add_upstreams([worker1_conf, worker2_conf, worker3_conf])
+
+        worker1_task = stream_data_worker.apply_async(args=[worker1_conf.to_dict])
+        worker2_task = stream_data_worker.apply_async(args=[worker2_conf.to_dict])
+        worker3_task = stream_data_worker.apply_async(args=[worker3_conf.to_dict])
+        worker4_task = stream_data_worker.apply_async(args=[worker4_conf.to_dict])
+
+        r1 = worker1_task.get()
+        self.assertEqual(worker1_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r1['state'])
+        self.assertEqual(r1['recv_message_count'], 0)
+        self.assertEqual(r1['sent_message_count'], 4)
+        self.assertEqual(r1['sent_data_message_count'], 3)
+
+        r2 = worker2_task.get()
+        self.assertEqual(worker2_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r2['state'])
+        self.assertEqual(r2['recv_message_count'], 0)
+        self.assertEqual(r2['sent_message_count'], 4)
+        self.assertEqual(r2['sent_data_message_count'], 3)
+
+        r3 = worker3_task.get()
+        self.assertEqual(worker3_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r3['state'])
+        self.assertEqual(r3['recv_message_count'], 0)
+        self.assertEqual(r3['sent_message_count'], 2)
+        self.assertEqual(r3['sent_data_message_count'], 1)
+
+        r4 = worker4_task.get()
+        self.assertEqual(worker4_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r4['state'])
+        self.assertEqual(r4['recv_message_count'], 10)
+        self.assertEqual(r4['recv_data_message_count'], 7)
+        self.assertEqual(r4['sent_message_count'], 0)
+
+    def test_3ups_1down(self):
+        """
+        Test worker(worker4) with 3 upstreams and 1 downstream
+        with upstreams has different sender settings
+
+        (worker1) \
+                   \
+        (worker2)   —> (worker4) -> (worker5)
+                   /
+        (worker3) /
+
+        """
+        job_id = str(uuid.uuid4())
+
+        worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
+        worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
+        worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x5_script)
+        worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_3ups_script)
+        worker5_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
+
+        worker1_conf.set_sender(buffer_size=1, separator='\n')
+        worker1_conf.add_downstream(worker4_conf)
+
+        worker2_conf.add_downstream(worker4_conf)
+
+        worker3_conf.add_downstream(worker4_conf)
+
+        worker4_conf.add_upstreams([worker1_conf, worker2_conf, worker3_conf])
+        worker4_conf.add_downstream(worker5_conf)
+
+        worker5_conf.add_upstream(worker4_conf)
+
+        worker1_task = stream_data_worker.apply_async(args=[worker1_conf.to_dict])
+        worker2_task = stream_data_worker.apply_async(args=[worker2_conf.to_dict])
+        worker3_task = stream_data_worker.apply_async(args=[worker3_conf.to_dict])
+        worker4_task = stream_data_worker.apply_async(args=[worker4_conf.to_dict])
+        worker5_task = stream_data_worker.apply_async(args=[worker5_conf.to_dict])
+
+        r1 = worker1_task.get()
+        self.assertEqual(worker1_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r1['state'])
+        self.assertEqual(r1['recv_message_count'], 0)
+        self.assertEqual(r1['sent_message_count'], 4)
+        self.assertEqual(r1['sent_data_message_count'], 3)
+
+        r2 = worker2_task.get()
+        self.assertEqual(worker2_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r2['state'])
+        self.assertEqual(r2['recv_message_count'], 0)
+        self.assertEqual(r2['sent_message_count'], 2)
+        self.assertEqual(r2['sent_data_message_count'], 1)
+
+        r3 = worker3_task.get()
+        self.assertEqual(worker3_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r3['state'])
+        self.assertEqual(r3['recv_message_count'], 0)
+        self.assertEqual(r3['sent_message_count'], 2)
+        self.assertEqual(r3['sent_data_message_count'], 1)
+
+        r4 = worker4_task.get()
+        self.assertEqual(worker4_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r4['state'])
+        self.assertEqual(r4['recv_message_count'], 8)
+        self.assertEqual(r4['recv_data_message_count'], 5)
+        self.assertEqual(r4['sent_message_count'], 4)
+
+        r5 = worker5_task.get()
+        self.assertEqual(worker5_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r5['state'])
+        self.assertEqual(r5['recv_message_count'], 4)
+        self.assertEqual(r5['recv_data_message_count'], 3)
+        self.assertEqual(r5['sent_message_count'], 0)
+
+    def test_3ups_1down_2(self):
+        """
+        Test worker(worker4) with 3 upstreams and 1 downstream
+        with upstreams has different sender settings
+
+        (worker1) \
+                   \
+        (worker2)   —> (worker4) -> (worker5)
+                   /
+        (worker3) /
+
+        """
+        job_id = str(uuid.uuid4())
+
+        worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
+        worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
+        worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x5_script)
+        worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_3ups_script)
+        worker5_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
+
+        worker1_conf.set_sender(buffer_size=1, separator='\n')
+        worker1_conf.add_downstream(worker4_conf)
+
+        worker2_conf.set_sender(buffer_size=1, separator='\n')
+        worker2_conf.add_downstream(worker4_conf)
+
+        worker3_conf.add_downstream(worker4_conf)
+
+        worker4_conf.add_upstreams([worker1_conf, worker2_conf, worker3_conf])
+        worker4_conf.add_downstream(worker5_conf)
+
+        worker5_conf.add_upstream(worker4_conf)
+
+        worker1_task = stream_data_worker.apply_async(args=[worker1_conf.to_dict])
+        worker2_task = stream_data_worker.apply_async(args=[worker2_conf.to_dict])
+        worker3_task = stream_data_worker.apply_async(args=[worker3_conf.to_dict])
+        worker4_task = stream_data_worker.apply_async(args=[worker4_conf.to_dict])
+        worker5_task = stream_data_worker.apply_async(args=[worker5_conf.to_dict])
+
+        r1 = worker1_task.get()
+        self.assertEqual(worker1_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r1['state'])
+        self.assertEqual(r1['recv_message_count'], 0)
+        self.assertEqual(r1['sent_message_count'], 4)
+        self.assertEqual(r1['sent_data_message_count'], 3)
+
+        r2 = worker2_task.get()
+        self.assertEqual(worker2_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r2['state'])
+        self.assertEqual(r2['recv_message_count'], 0)
+        self.assertEqual(r2['sent_message_count'], 4)
+        self.assertEqual(r2['sent_data_message_count'], 3)
+
+        r3 = worker3_task.get()
+        self.assertEqual(worker3_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r3['state'])
+        self.assertEqual(r3['recv_message_count'], 0)
+        self.assertEqual(r3['sent_message_count'], 2)
+        self.assertEqual(r3['sent_data_message_count'], 1)
+
+        r4 = worker4_task.get()
+        self.assertEqual(worker4_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r4['state'])
+        self.assertEqual(r4['recv_message_count'], 10)
+        self.assertEqual(r4['recv_data_message_count'], 7)
+        self.assertEqual(r4['sent_message_count'], 4)
+
+        r5 = worker5_task.get()
+        self.assertEqual(worker5_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r5['state'])
+        self.assertEqual(r5['recv_message_count'], 4)
+        self.assertEqual(r5['recv_data_message_count'], 3)
+        self.assertEqual(r5['sent_message_count'], 0)
+
+    def test_3ups_1down_3(self):
+        """
+        Test worker(worker4) with 3 upstreams and 1 downstream
+        with upstreams has different sender settings
+
+        (worker1) \
+                   \
+        (worker2)   —> (worker4) -> (worker5)
+                   /
+        (worker3) /
+
+        """
+        job_id = str(uuid.uuid4())
+
+        worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
+        worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
+        worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x5_script)
+        worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_3ups_script)
+        worker5_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
+
+        worker1_conf.set_sender(buffer_size=1, separator='\n')
+        worker1_conf.add_downstream(worker4_conf)
+
+        worker2_conf.set_sender(buffer_size=1, separator='\n')
+        worker2_conf.add_downstream(worker4_conf)
+
+        worker3_conf.set_sender(buffer_size=1, separator='\n')
+        worker3_conf.add_downstream(worker4_conf)
+
+        worker4_conf.add_upstreams([worker1_conf, worker2_conf, worker3_conf])
+        worker4_conf.add_downstream(worker5_conf)
+
+        worker5_conf.add_upstream(worker4_conf)
+
+        worker1_task = stream_data_worker.apply_async(args=[worker1_conf.to_dict])
+        worker2_task = stream_data_worker.apply_async(args=[worker2_conf.to_dict])
+        worker3_task = stream_data_worker.apply_async(args=[worker3_conf.to_dict])
+        worker4_task = stream_data_worker.apply_async(args=[worker4_conf.to_dict])
+        worker5_task = stream_data_worker.apply_async(args=[worker5_conf.to_dict])
+
+        r1 = worker1_task.get()
+        self.assertEqual(worker1_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r1['state'])
+        self.assertEqual(r1['recv_message_count'], 0)
+        self.assertEqual(r1['sent_message_count'], 4)
+        self.assertEqual(r1['sent_data_message_count'], 3)
+
+        r2 = worker2_task.get()
+        self.assertEqual(worker2_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r2['state'])
+        self.assertEqual(r2['recv_message_count'], 0)
+        self.assertEqual(r2['sent_message_count'], 4)
+        self.assertEqual(r2['sent_data_message_count'], 3)
+
+        r3 = worker3_task.get()
+        self.assertEqual(worker3_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r3['state'])
+        self.assertEqual(r3['recv_message_count'], 0)
+        self.assertEqual(r3['sent_message_count'], 6)
+        self.assertEqual(r3['sent_data_message_count'], 5)
+
+        r4 = worker4_task.get()
+        self.assertEqual(worker4_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r4['state'])
+        self.assertEqual(r4['recv_message_count'], 14)
+        self.assertEqual(r4['recv_data_message_count'], 11)
+        # why 6？
+        # 5 data msg + 1 ctrl msg and send it in batch
+        self.assertEqual(r4['sent_message_count'], 6)
+
+        r5 = worker5_task.get()
+        self.assertEqual(worker5_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r5['state'])
+        self.assertEqual(r5['recv_message_count'], 6)
+        self.assertEqual(r5['recv_data_message_count'], 5)
+        self.assertEqual(r5['sent_message_count'], 0)
+
+    def test_3ups_1down_4(self):
+        """
+        Test worker(worker4) with 3 upstreams and 1 downstream
+        with different sender settings
+
+        (worker1) \
+                   \
+        (worker2)   —> (worker4) -> (worker5)
+                   /
+        (worker3) /
+
+        """
+        job_id = str(uuid.uuid4())
+
+        worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
+        worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
+        worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x5_script)
+        worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_3ups_script)
+        worker5_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
+
+        worker1_conf.set_sender(buffer_size=1, separator='\n')
+        worker1_conf.add_downstream(worker4_conf)
+
+        worker2_conf.set_sender(buffer_size=1, separator='\n')
+        worker2_conf.add_downstream(worker4_conf)
+
+        worker3_conf.set_sender(buffer_size=1, separator='\n')
+        worker3_conf.add_downstream(worker4_conf)
+
+        worker4_conf.set_sender(buffer_size=1, separator='\n')
+        worker4_conf.add_upstreams([worker1_conf, worker2_conf, worker3_conf])
+        worker4_conf.add_downstream(worker5_conf)
+
+        worker5_conf.add_upstream(worker4_conf)
+
+        worker1_task = stream_data_worker.apply_async(args=[worker1_conf.to_dict])
+        worker2_task = stream_data_worker.apply_async(args=[worker2_conf.to_dict])
+        worker3_task = stream_data_worker.apply_async(args=[worker3_conf.to_dict])
+        worker4_task = stream_data_worker.apply_async(args=[worker4_conf.to_dict])
+        worker5_task = stream_data_worker.apply_async(args=[worker5_conf.to_dict])
+
+        r1 = worker1_task.get()
+        self.assertEqual(worker1_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r1['state'])
+        self.assertEqual(r1['recv_message_count'], 0)
+        self.assertEqual(r1['sent_message_count'], 4)
+        self.assertEqual(r1['sent_data_message_count'], 3)
+
+        r2 = worker2_task.get()
+        self.assertEqual(worker2_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r2['state'])
+        self.assertEqual(r2['recv_message_count'], 0)
+        self.assertEqual(r2['sent_message_count'], 4)
+        self.assertEqual(r2['sent_data_message_count'], 3)
+
+        r3 = worker3_task.get()
+        self.assertEqual(worker3_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r3['state'])
+        self.assertEqual(r3['recv_message_count'], 0)
+        self.assertEqual(r3['sent_message_count'], 6)
+        self.assertEqual(r3['sent_data_message_count'], 5)
+
+        r4 = worker4_task.get()
+        self.assertEqual(worker4_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r4['state'])
+        self.assertEqual(r4['recv_message_count'], 14)
+        self.assertEqual(r4['recv_data_message_count'], 11)
+        # why 12？
+        # 3 data msg + 3 data msg + 3 data msg + 1 ctrl msg
+        # and send it separately
+        self.assertEqual(r4['sent_message_count'], 12)
+        self.assertEqual(r4['sent_data_message_count'], 11)
+
+        r5 = worker5_task.get()
+        self.assertEqual(worker5_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r5['state'])
+        self.assertEqual(r5['recv_message_count'], 12)
+        self.assertEqual(r5['recv_data_message_count'], 11)
+        self.assertEqual(r5['sent_message_count'], 0)
