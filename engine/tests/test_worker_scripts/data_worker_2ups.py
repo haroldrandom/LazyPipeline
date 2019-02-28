@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Deal with two upstreams at the same time
+Union two upstreams at the same time
 """
 
 import os
@@ -19,8 +19,10 @@ def parse_arg(arg_name):
         for v in values.split('\n'):
             if not v:
                 continue
-            ret.append(v)
+            ret.append(arg_name + ' = ' + v)
 
+    if len(ret) == 0:
+        return [arg_name + ' = []']
     return ret
 
 

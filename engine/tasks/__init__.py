@@ -45,8 +45,6 @@ def batch_data_worker(conf):
             cmd, stderr=subprocess.STDOUT, env=new_env)
         output = output.decode('utf-8') or None
 
-        print(output)
-
         self.push_data(output)
     except subprocess.CalledProcessError as exc:
         logger.error('[TASK_ID=%s] - %s' % (self.node_id, 'RET_CODE ERROR'))
@@ -75,6 +73,7 @@ def stream_data_worker(conf, reserve_output=False):
         self.init(conf)  # init this worker
     except Exception:
         logger.error('[TASK_ID=%s] - %s' % (self.node_id, 'CONFIG ERROR'))
+        logger.error('[TASK_ID=%s] - %s' % (self.node_id, str(traceback.format_exc())))
         self.destroy()
         return
 
@@ -96,18 +95,21 @@ def stream_data_worker(conf, reserve_output=False):
 
             self.push_data(output)
     except FinishedSignal:
-        self.send_finished_message()
+        pass
     except subprocess.CalledProcessError as exc:
         logger.error('[TASK_ID=%s] - %s' % (self.node_id, 'RET_CODE ERROR'))
         logger.error('[TASK_ID=%s] - %s' % (self.node_id, exc.output.decode('utf-8')))
+        self.worker_state = worker_states.RUNTIME_ERROR
     except SoftTimeLimitExceeded:
         logger.error('[TASK_ID=%s] - %s' % (self.node_id, 'TIMEOUT'))
-        self.send_timeout_message()
-    except Exception as e:
+        self.worker_state = worker_states.TIMEOUT
+    except Exception:
         logger.error('[TASK_ID=%s] - %s' % (self.node_id, 'UNHANLDE ERROR'))
-        logger.error('[TASK_ID=%s] - %s' % (self.node_id, str(e)))
+        logger.error('[TASK_ID=%s] - %s' % (self.node_id, str(traceback.format_exc())))
+        self.worker_state = worker_states.RUNTIME_ERROR
     finally:
         logger.info('[TASK_ID=%s] - %s' % (self.node_id, 'FINISHED'))
-        self.destroy()  # delete external resource
+        self.destroy()      # delete external resource
+        self.send_finished_message()    # send finished message
 
         return self.statistics

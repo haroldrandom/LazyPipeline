@@ -88,13 +88,9 @@ class WorkerBaseTask(BaseTask):
         self._sent_ctrl_message_count = 0
         self._sent_data_message_count = 0
 
-        self.preprocessed_message_count = 0
-
-        self.postprocessed_message_count = 0
-
         # about sender config
         self._sender_buffer_size = self.worker_conf.sender_buffer_size
-        self._sender_sepatator = self.worker_conf.sender_separator
+        self._sender_separator = self.worker_conf.sender_separator
         self._sender_buffer = deque()
 
         # set a connection to upstream message queue for reading
@@ -127,8 +123,6 @@ class WorkerBaseTask(BaseTask):
         s = {
             'job_id': self.job_id,
             'node_id': self.node_id,
-            'preprocessed_message_count': self.preprocessed_message_count,
-            'postprocessed_message_count': self.postprocessed_message_count,
             'recv_message_count': self._recv_message_count,
             'sent_message_count': self._sent_message_count,
             'recv_ctrl_message_count': self._recv_ctrl_message_count,
@@ -176,6 +170,11 @@ class WorkerBaseTask(BaseTask):
 
         self._recv_message_count += 1
 
+        if self.node_id in ['33', '44']:
+            from pprint import pprint
+            print('-' * 30 + 'recv_msg' + '-' * 30)
+            pprint(str(msg))
+
         return msg
 
     def _pack_message(self, message_body, type_=MessageType.DATA):
@@ -199,7 +198,11 @@ class WorkerBaseTask(BaseTask):
             self._sent_ctrl_message_count += 1
         else:
             raise Exception('Unsupported message type: ' + message_type)
+
         self._sent_message_count += 1
+
+        if self.node_id == str(33):
+            print('sent=' + str(message))
 
         self._mq_conn.lpush(downstream, message)
         self._mq_conn.expire(downstream, self.expires)
@@ -241,8 +244,8 @@ class WorkerBaseTask(BaseTask):
         if message_body is None:
             raise AttributeError('message_body must not be None')
 
-        if isinstance(self._sender_sepatator, str):
-            tmp = message_body.strip().split(self._sender_sepatator)
+        if isinstance(self._sender_separator, str):
+            tmp = message_body.strip().split(self._sender_separator)
             self._sender_buffer.extend(tmp)
         else:
             self._sender_buffer.append(message_body)
@@ -252,25 +255,18 @@ class WorkerBaseTask(BaseTask):
             len(self._sender_buffer) >= self._sender_buffer_size
         ):
             t = self._sender_buffer_size
+
             while t > 0 and len(self.downstreams) > 0:
                 msg = self._sender_buffer.popleft()
                 for down in self.downstreams:
                     self._send_message(down, msg, MessageType.DATA)
                 t -= 1
 
-    def send_timeout_message(self):
-        self.worker_state = worker_states.TIMEOUT
-
+    def send_finished_message(self):
         self._clear_buffer()
 
-        for down in self.downstreams:
-            self._send_message(down, [], MessageType.CTRL)
-
-    def send_finished_message(self):
         if self.worker_state == worker_states.RUNNING:
             self.worker_state = worker_states.FINISHED
-
-        self._clear_buffer()
 
         for down in self.downstreams:
             self._send_message(down, [], MessageType.CTRL)

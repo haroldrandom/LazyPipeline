@@ -49,6 +49,4 @@ class BatchDataWorker(WorkerBaseTask):
 
                 self.upstream_data[up]['data'].append(msg['data'])
 
-        self.preprocessed_message_count += 1
-
         return self.upstream_data

@@ -2,6 +2,7 @@ from collections import deque
 from collections import OrderedDict
 
 from engine.tasks.base import WorkerBaseTask
+from engine.tasks import worker_states
 from engine.tasks.message import MessageType
 from engine.tasks.signal import FinishedSignal
 
@@ -24,15 +25,17 @@ class StreamDataWorker(WorkerBaseTask):
         """ Invoke once and return one line of data at a time.
         raise Finished signal if all upstreams are finished
         """
+        self.worker_state = worker_states.RUNNING
+
         while len(self.upstreams) > 0:
             msg = self._recv_message()
 
             up = msg['sender']
 
             if msg['type'] == MessageType.CTRL:
-                if msg['status']['is_timeout'] is True:
+                if worker_states.TIMEOUT == msg['state']:
                     self.timeout_ups[up] += 1
-                elif msg['status']['is_finished'] is True:
+                elif worker_states.FINISHED == msg['state']:
                     self.finished_ups[up] += 1
                 else:
                     continue
@@ -43,44 +46,74 @@ class StreamDataWorker(WorkerBaseTask):
 
                 self.upstream_data[up]['data'].append(msg['data'])
 
+            # all data is arrived
             complete_cnt = len(self.finished_ups) + len(self.timeout_ups)
-
             if complete_cnt >= len(self.upstreams):
-                raise FinishedSignal()  # raise finished signal
+                break
 
-            useable_ups = []
+            # yield data if available
+            if self._prepare_data() is True:
+                yield self.ret_data
+                self._reset_ret_data()
 
-            for up, body in self.upstream_data.items():
-                if self.finished_ups[up] != 0:
-                    useable_ups.append(up)
-                elif self.timeout_ups[up] != 0:
-                    useable_ups.append(up)
-                elif len(body['data']) > 0:
-                    useable_ups.append(up)
-                else:
-                    continue
+        # clear the rest of data
+        while self._prepare_data() is True:
+            yield self.ret_data
+            self._reset_ret_data()
 
-            if len(useable_ups) < len(self.upstreams):
-                continue
-
-            for up in useable_ups:
-                try:
-                    self.ret_data[up]['data'].append(self.upstream_data[up]['data'].popleft())
-                except Exception:
-                    self.ret_data[up]['data'] = []
-
-            self.preprocessed_message_count += 1
-
+        if len(self.upstreams) == 0:
             yield self.ret_data
 
-        yield self.ret_data
         raise FinishedSignal()  # raise finished signal
 
-    def push_data(self, message_body):
-        msg = self._pack_message(message_body)
+    def _prepare_data(self):
+        drained_ups, ready_ups = 0, 0
 
-        for down in self.downstreams:
-            self._send_message(down, msg)
+        if len(self.upstreams) == 0:
+            return False
 
-        if len(self.downstreams) > 0:
-            self.postprocessed_message_count += 1
+        if self.node_id == '33':
+            print('-' * 30 + 'before' + '-' * 30)
+            print(self.ret_data)
+            print(self.upstream_data)
+
+        for up in self.upstreams:
+            if (
+                (self.finished_ups[up] != 0 or self.timeout_ups[up] != 0) and
+                len(self.upstream_data[up]['data']) == 0
+            ):
+                drained_ups += 1
+
+            elif len(self.ret_data[up]['data']) > 0:    # already popleft
+
+                ready_ups += 1
+
+            else:
+                if len(self.upstream_data[up]['data']) == 0:  # no ready
+                    continue
+                else:
+                    self.ret_data[up]['data'] = [self.upstream_data[up]['data'].popleft()]
+                    ready_ups += 1
+
+        if self.node_id == '33':
+            print('drained_ups=%d ready_ups=%d' % (drained_ups, ready_ups))
+
+        if ready_ups == len(self.upstreams):
+            if self.node_id == '33':
+                print('-' * 30 + 'after' + '-' * 30)
+                print(self.ret_data)
+                print(self.upstream_data)
+            return True
+        elif (
+            drained_ups != 0 and ready_ups != 0 and
+            ready_ups + drained_ups == len(self.upstreams)
+        ):
+            return True
+        elif drained_ups == len(self.upstreams):
+            return False
+
+        return False
+
+    def _reset_ret_data(self):
+        for up in self.ret_data:
+            self.ret_data[up]['data'] = []
