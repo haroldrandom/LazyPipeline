@@ -1,4 +1,5 @@
 import uuid
+import celery
 
 from celery import states
 from django.test import TestCase
@@ -37,8 +38,8 @@ class StreamDataWorker(TestCase):
         with open(cls.scripts_home + 'ts_emitter_every_10s.py') as fd:
             cls.ts_emitter_10s_script = fd.read()
 
-        with open(cls.scripts_home + 'data_worker_1ups.py') as fd:
-            cls.data_worker_1ups_script = fd.read()
+        with open(cls.scripts_home + 'data_worker_1up.py') as fd:
+            cls.data_worker_1up_script = fd.read()
 
         with open(cls.scripts_home + 'data_worker_2ups.py') as fd:
             cls.data_worker_2ups_script = fd.read()
@@ -138,7 +139,7 @@ class StreamDataWorker(TestCase):
 
     def test_1up_1down(self):
         """
-        Test worker(worker2) with 1 upstream and 0 downstream
+        Test worker(worker2) with 1 upstream and 1 downstream
 
         (worker1) -> (worker2) -> (worker3)
 
@@ -147,8 +148,8 @@ class StreamDataWorker(TestCase):
         job_id = str(uuid.uuid4())
 
         worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
-        worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
-        worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
+        worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1up_script)
+        worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1up_script)
 
         worker1_conf.set_sender(buffer_size=1, separator='\n')
         worker1_conf.add_downstream(worker2_conf)
@@ -197,8 +198,8 @@ class StreamDataWorker(TestCase):
         job_id = str(uuid.uuid4())
 
         worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
-        worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
-        worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
+        worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1up_script)
+        worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1up_script)
 
         worker1_conf.set_sender(buffer_size=1, separator='\n')
         worker1_conf.add_downstream(worker2_conf)
@@ -299,7 +300,7 @@ class StreamDataWorker(TestCase):
         worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
         worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x5_script)
         worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_2ups_script)
-        worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
+        worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1up_script)
 
         worker1_conf.add_downstream(worker3_conf)
         worker1_conf.set_sender(buffer_size=1, separator='\n')
@@ -361,7 +362,7 @@ class StreamDataWorker(TestCase):
         worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
         worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x5_script)
         worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_2ups_script)
-        worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
+        worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1up_script)
 
         worker1_conf.add_downstream(worker3_conf)
         worker1_conf.set_sender(buffer_size=1, separator='\n')
@@ -426,7 +427,7 @@ class StreamDataWorker(TestCase):
         worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
         worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x5_script)
         worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_2ups_join_script)
-        worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
+        worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1up_script)
 
         worker1_conf.add_downstream(worker3_conf)
         worker1_conf.set_sender(buffer_size=1, separator='\n')
@@ -488,8 +489,8 @@ class StreamDataWorker(TestCase):
         worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
         worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
         worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_2ups_script)
-        worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
-        worker5_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
+        worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1up_script)
+        worker5_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1up_script)
 
         worker1_conf.set_sender(buffer_size=1, separator='\n')
         worker1_conf.add_downstream(worker3_conf)
@@ -561,8 +562,8 @@ class StreamDataWorker(TestCase):
         worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
         worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
         worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_2ups_join_script)
-        worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
-        worker5_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
+        worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1up_script)
+        worker5_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1up_script)
 
         worker1_conf.set_sender(buffer_size=1, separator='\n')
         worker1_conf.add_downstream(worker3_conf)
@@ -821,7 +822,7 @@ class StreamDataWorker(TestCase):
         worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
         worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x5_script)
         worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_3ups_script)
-        worker5_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
+        worker5_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1up_script)
 
         worker1_conf.set_sender(buffer_size=1, separator='\n')
         worker1_conf.add_downstream(worker4_conf)
@@ -894,7 +895,7 @@ class StreamDataWorker(TestCase):
         worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
         worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x5_script)
         worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_3ups_script)
-        worker5_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
+        worker5_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1up_script)
 
         worker1_conf.set_sender(buffer_size=1, separator='\n')
         worker1_conf.add_downstream(worker4_conf)
@@ -968,7 +969,7 @@ class StreamDataWorker(TestCase):
         worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
         worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x5_script)
         worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_3ups_script)
-        worker5_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
+        worker5_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1up_script)
 
         worker1_conf.set_sender(buffer_size=1, separator='\n')
         worker1_conf.add_downstream(worker4_conf)
@@ -1045,7 +1046,7 @@ class StreamDataWorker(TestCase):
         worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
         worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x5_script)
         worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_3ups_script)
-        worker5_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
+        worker5_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1up_script)
 
         worker1_conf.set_sender(buffer_size=1, separator='\n')
         worker1_conf.add_downstream(worker4_conf)
@@ -1092,11 +1093,12 @@ class StreamDataWorker(TestCase):
         r4 = worker4_task.get()
         self.assertEqual(worker4_task.state, states.SUCCESS)
         self.assertEqual(worker_states.FINISHED, r4['state'])
+        # why 14? cause 4 + 4 + 6
         self.assertEqual(r4['recv_message_count'], 14)
         self.assertEqual(r4['recv_data_message_count'], 11)
         # why 12？
-        # 3 data msg + 3 data msg + 3 data msg + 1 ctrl msg
-        # and send it separately
+        # 3 data msg + 3 data msg + 5 data msg + 1 ctrl msg
+        # worker3's script union them all send it separately
         self.assertEqual(r4['sent_message_count'], 12)
         self.assertEqual(r4['sent_data_message_count'], 11)
 
@@ -1106,3 +1108,269 @@ class StreamDataWorker(TestCase):
         self.assertEqual(r5['recv_message_count'], 12)
         self.assertEqual(r5['recv_data_message_count'], 11)
         self.assertEqual(r5['sent_message_count'], 0)
+
+
+class StreamDataWorkerTimeoutTest(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+
+        cls.scripts_home = settings.BASE_DIR + '/engine/tests/test_worker_scripts/'
+
+        with open(cls.scripts_home + 'ts_emitter_x1.py') as fd:
+            cls.ts_emitter_x1_script = fd.read()
+
+        with open(cls.scripts_home + 'ts_emitter_x3.py') as fd:
+            cls.ts_emitter_x3_script = fd.read()
+
+        with open(cls.scripts_home + 'ts_emitter_x5.py') as fd:
+            cls.ts_emitter_x5_script = fd.read()
+
+        with open(cls.scripts_home + 'ts_emitter_x10.py') as fd:
+            cls.ts_emitter_x10_script = fd.read()
+
+        with open(cls.scripts_home + 'ts_emitter_every_3s.py') as fd:
+            cls.ts_emitter_3s_script = fd.read()
+
+        with open(cls.scripts_home + 'ts_emitter_every_5s.py') as fd:
+            cls.ts_emitter_5s_script = fd.read()
+
+        with open(cls.scripts_home + 'ts_emitter_every_10s.py') as fd:
+            cls.ts_emitter_10s_script = fd.read()
+
+        with open(cls.scripts_home + 'data_worker_1up.py') as fd:
+            cls.data_worker_1up_script = fd.read()
+
+        with open(cls.scripts_home + 'data_worker_1up_1s.py') as fd:
+            cls.data_worker_1up_1s_script = fd.read()
+
+        with open(cls.scripts_home + 'data_worker_2ups.py') as fd:
+            cls.data_worker_2ups_script = fd.read()
+
+        with open(cls.scripts_home + 'data_worker_2ups_join.py') as fd:
+            cls.data_worker_2ups_join_script = fd.read()
+
+        with open(cls.scripts_home + 'data_worker_3ups.py') as fd:
+            cls.data_worker_3ups_script = fd.read()
+
+    def test_timeout_1up_0down(self):
+        """
+        Test worker(worker2) with 1 upstream and 0 downstream
+
+        (worker1) -> (worker2)
+
+        worker1 sends its output in batch
+        worker2 has no interest to handle upstream's output.
+        worker2 takes 3 seconds to handler upstream's data but timeout at 2th second
+        """
+        job_id = str(uuid.uuid4())
+
+        worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
+        worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_3s_script)
+
+        worker1_conf.add_downstream(worker2_conf)
+
+        worker2_conf.add_upstream(worker1_conf)
+
+        worker1_task = stream_data_worker.apply_async(args=[worker1_conf.to_dict])
+        worker2_task = stream_data_worker.apply_async(
+            args=[worker2_conf.to_dict],
+            soft_time_limit=2)
+
+        r1 = worker1_task.get()
+        self.assertEqual(worker1_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r1['state'])
+        self.assertEqual(r1['recv_message_count'], 0)
+        self.assertEqual(r1['sent_message_count'], 2)
+
+        r2 = worker2_task.get()
+        self.assertEqual(worker2_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.TIMEOUT, r2['state'])
+        # why 1?
+        # cause worker receive the first message and start process immediately
+        # and left the ctrl message in the message queue
+        # worker2 takes 3 seconds to finished its processing but timeout in 2nd second
+        # so the ctrl message will never has a chance to be received
+        self.assertEqual(r2['recv_message_count'], 1)
+        self.assertEqual(r2['recv_data_message_count'], 1)
+
+    def test_timeout_1up_0down_2(self):
+        """
+        Test worker(worker2) with 1 upstream and 0 downstream
+
+        (worker1) -> (worker2)
+
+        worker1 sends its output separately.
+        worker2 has no interest to handle upstream's output.
+        worker2 takes 3 seconds to handler upstream's data but timeout at 2th second
+        """
+        job_id = str(uuid.uuid4())
+
+        worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
+        worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_3s_script)
+
+        worker1_conf.set_sender(buffer_size=1, separator='\n')
+        worker1_conf.add_downstream(worker2_conf)
+
+        worker2_conf.add_upstream(worker1_conf)
+
+        worker1_task = stream_data_worker.apply_async(args=[worker1_conf.to_dict])
+        worker2_task = stream_data_worker.apply_async(
+            args=[worker2_conf.to_dict],
+            soft_time_limit=2)
+
+        r1 = worker1_task.get()
+        self.assertEqual(worker1_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r1['state'])
+        self.assertEqual(r1['recv_message_count'], 0)
+        self.assertEqual(r1['sent_message_count'], 4)
+
+        r2 = worker2_task.get()
+        self.assertEqual(worker2_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.TIMEOUT, r2['state'])
+        # why 1?
+        # cause worker receive the first message and start process immediately
+        # and left the ctrl message in the message queue
+        # worker2 takes 3 seconds to finished its processing but timeout in 2nd second
+        # so the ctrl message will never has a chance to be received
+        self.assertEqual(r2['recv_message_count'], 1)
+        self.assertEqual(r2['recv_data_message_count'], 1)
+
+    def test_timeout_1up_0down_3(self):
+        """
+        Test worker(worker2) with 1 upstream and 0 downstream
+
+        (worker1) -> (worker2)
+
+        worker1 sends its output separately.
+        worker2 has no interest to handle upstream's output.
+        worker2 takes 3 seconds to handler upstream's data but timeout at 2th second
+        """
+        job_id = str(uuid.uuid4())
+
+        worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
+        worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_3s_script)
+
+        worker1_conf.set_sender(buffer_size=2, separator='\n')
+        worker1_conf.add_downstream(worker2_conf)
+
+        worker2_conf.add_upstream(worker1_conf)
+
+        worker1_task = stream_data_worker.apply_async(args=[worker1_conf.to_dict])
+        worker2_task = stream_data_worker.apply_async(
+            args=[worker2_conf.to_dict],
+            soft_time_limit=2)
+
+        r1 = worker1_task.get()
+        self.assertEqual(worker1_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.FINISHED, r1['state'])
+        self.assertEqual(r1['recv_message_count'], 0)
+        self.assertEqual(r1['sent_message_count'], 4)
+
+        r2 = worker2_task.get()
+        self.assertEqual(worker2_task.state, states.SUCCESS)
+        self.assertEqual(worker_states.TIMEOUT, r2['state'])
+        # why 1?
+        # cause worker receive the first message and start process immediately
+        # and left the ctrl message in the message queue
+        # worker2 takes 3 seconds to finished its processing but timeout in 2nd second
+        # so the ctrl message will never has a chance to be received
+        self.assertEqual(r2['recv_message_count'], 1)
+        self.assertEqual(r2['recv_data_message_count'], 1)
+
+    def test_timeout_1up_1down(self):
+        """
+        Test worker(worker2) with 1 upstream and 1 downstream
+
+        (worker1) -> (worker2) -> (worker3)
+
+        worker2 will handle upstream's output, and worker1 sends its data in 3 pieces
+        """
+        job_id = str(uuid.uuid4())
+
+        worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
+        worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1up_1s_script)
+        worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1up_script)
+
+        worker1_conf.set_sender(buffer_size=1, separator='\n')
+        worker1_conf.add_downstream(worker2_conf)
+
+        worker2_conf.add_upstream(worker1_conf)
+        worker2_conf.add_downstream(worker3_conf)
+
+        worker3_conf.add_upstream(worker2_conf)
+
+        worker1_task = stream_data_worker.apply_async(args=[worker1_conf.to_dict])
+        worker2_task = stream_data_worker.apply_async(
+            args=[worker2_conf.to_dict],
+            soft_time_limit=2)
+        worker3_task = stream_data_worker.apply_async(args=[worker3_conf.to_dict])
+
+        r1 = worker1_task.get()
+        self.assertEqual(worker1_task.state, 'SUCCESS')
+        self.assertEqual(worker_states.FINISHED, r1['state'])
+        self.assertEqual(r1['recv_message_count'], 0)
+        self.assertEqual(r1['sent_message_count'], 4)
+        self.assertEqual(r1['sent_data_message_count'], 3)
+
+        r2 = worker2_task.get()
+        self.assertEqual(worker2_task.state, 'SUCCESS')
+        self.assertEqual(worker_states.TIMEOUT, r2['state'])
+        # need 1s to process on receiving every data message
+        # receive 2 data message from upsteam and take 2s to process
+        # timeout the prorcessing of 2nd data message
+        self.assertEqual(r2['recv_message_count'], 2)
+        self.assertEqual(r2['recv_data_message_count'], 2)
+        self.assertEqual(r2['sent_data_message_count'], 1)
+
+        r3 = worker3_task.get()
+        self.assertEqual(worker3_task.state, 'SUCCESS')
+        self.assertEqual(worker_states.FINISHED, r3['state'])
+        # why 2 ?
+        # cause worker2 timeout during the process of 2nd data message, only the 1st message sent
+        self.assertEqual(r3['recv_message_count'], 2)
+        self.assertEqual(r3['recv_data_message_count'], 1)
+
+
+class StreamDataWorkerExpiresTest(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+
+        cls.scripts_home = settings.BASE_DIR + '/engine/tests/test_worker_scripts/'
+
+        with open(cls.scripts_home + 'ts_emitter_every_3s.py') as fd:
+            cls.ts_emitter_3s_script = fd.read()
+
+        with open(cls.scripts_home + 'ts_emitter_every_5s.py') as fd:
+            cls.ts_emitter_5s_script = fd.read()
+
+        with open(cls.scripts_home + 'ts_emitter_every_10s.py') as fd:
+            cls.ts_emitter_10s_script = fd.read()
+
+        with open(cls.scripts_home + 'data_worker_1up.py') as fd:
+            cls.data_worker_1up_script = fd.read()
+
+        with open(cls.scripts_home + 'data_worker_2ups.py') as fd:
+            cls.data_worker_2ups_script = fd.read()
+
+        with open(cls.scripts_home + 'data_worker_3ups.py') as fd:
+            cls.data_worker_3ups_script = fd.read()
+
+    def test_expire(self):
+        """
+        Test worker with expiration
+        """
+        job_id = str(uuid.uuid4())
+
+        worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_3s_script)
+
+        worker1_task = stream_data_worker.apply_async(
+            args=[worker1_conf.to_dict],
+            countdown=2,
+            expires=1)
+
+        with self.assertRaises(celery.exceptions.TaskRevokedError):
+            worker1_task.get()
+
+        self.assertEqual(worker1_task.state, 'REVOKED')

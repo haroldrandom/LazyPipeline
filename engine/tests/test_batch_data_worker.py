@@ -32,8 +32,8 @@
 #         with open(cls.scripts_home + 'ts_emitter_every_10s.py') as fd:
 #             cls.ts_emitter_10s_script = fd.read()
 
-#         with open(cls.scripts_home + 'data_worker_1ups.py') as fd:
-#             cls.data_worker_1ups_script = fd.read()
+#         with open(cls.scripts_home + 'data_worker_1up.py') as fd:
+#             cls.data_worker_1up_script = fd.read()
 
 #         with open(cls.scripts_home + 'data_worker_2ups.py') as fd:
 #             cls.data_worker_2ups_script = fd.read()
@@ -165,7 +165,7 @@
 #         worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
 #         worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x10_script)
 #         worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_2ups_script)
-#         worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
+#         worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1up_script)
 
 #         worker1_conf.add_downstream(worker3_conf)
 
@@ -283,8 +283,8 @@
 #         worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x5_script)
 #         worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
 #         worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_3ups_script)
-#         worker5_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
-#         worker6_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
+#         worker5_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1up_script)
+#         worker6_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1up_script)
 
 #         worker1_conf.add_downstream(worker4_conf)
 #         worker2_conf.add_downstream(worker4_conf)
@@ -341,8 +341,8 @@
 #         with open(cls.scripts_home + 'ts_emitter_every_10s.py') as fd:
 #             cls.ts_emitter_10s_script = fd.read()
 
-#         with open(cls.scripts_home + 'data_worker_1ups.py') as fd:
-#             cls.data_worker_1ups_script = fd.read()
+#         with open(cls.scripts_home + 'data_worker_1up.py') as fd:
+#             cls.data_worker_1up_script = fd.read()
 
 #         with open(cls.scripts_home + 'data_worker_2ups.py') as fd:
 #             cls.data_worker_2ups_script = fd.read()
@@ -480,7 +480,7 @@
 #         job_id = str(uuid.uuid4())
 
 #         worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
-#         worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
+#         worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1up_script)
 
 #         worker1_conf.set_sender(buffer_size=1, separator='\n')
 #         worker1_conf.add_downstream(worker2_conf)
@@ -518,7 +518,7 @@
 #         job_id = str(uuid.uuid4())
 
 #         worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
-#         worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
+#         worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1up_script)
 
 #         worker1_conf.set_sender(separator='\n')
 #         worker1_conf.add_downstream(worker2_conf)
@@ -557,7 +557,7 @@
 #         job_id = str(uuid.uuid4())
 
 #         worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_x3_script)
-#         worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
+#         worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1up_script)
 
 #         worker1_conf.set_sender(buffer_size=1, separator='#')
 #         worker1_conf.add_downstream(worker2_conf)
@@ -698,8 +698,8 @@
 #         with open(cls.scripts_home + 'ts_emitter_every_10s.py') as fd:
 #             cls.ts_emitter_10s_script = fd.read()
 
-#         with open(cls.scripts_home + 'data_worker_1ups.py') as fd:
-#             cls.data_worker_1ups_script = fd.read()
+#         with open(cls.scripts_home + 'data_worker_1up.py') as fd:
+#             cls.data_worker_1up_script = fd.read()
 
 #         with open(cls.scripts_home + 'data_worker_2ups.py') as fd:
 #             cls.data_worker_2ups_script = fd.read()
@@ -778,7 +778,7 @@
 #         job_id = str(uuid.uuid4())
 
 #         worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_5s_script)
-#         worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
+#         worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1up_script)
 
 #         worker1_conf.add_downstream(worker2_conf)
 #         worker2_conf.add_upstream(worker1_conf)
@@ -819,7 +819,7 @@
 #         worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_3s_script)
 #         worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_10s_script)
 #         worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_2ups_script)
-#         worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
+#         worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1up_script)
 
 #         worker1_conf.add_downstream(worker3_conf)
 
@@ -877,7 +877,7 @@
 #         worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_3s_script)
 #         worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_10s_script)
 #         worker3_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_2ups_script)
-#         worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
+#         worker4_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1up_script)
 
 #         worker1_conf.add_downstream(worker3_conf)
 
@@ -955,8 +955,8 @@
 #         with open(cls.scripts_home + 'ts_emitter_every_10s.py') as fd:
 #             cls.ts_emitter_10s_script = fd.read()
 
-#         with open(cls.scripts_home + 'data_worker_1ups.py') as fd:
-#             cls.data_worker_1ups_script = fd.read()
+#         with open(cls.scripts_home + 'data_worker_1up.py') as fd:
+#             cls.data_worker_1up_script = fd.read()
 
 #         with open(cls.scripts_home + 'data_worker_2ups.py') as fd:
 #             cls.data_worker_2ups_script = fd.read()
@@ -976,7 +976,7 @@
 #         job_id = str(uuid.uuid4())
 
 #         worker1_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.ts_emitter_3s_script)
-#         worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1ups_script)
+#         worker2_conf = WorkerConfig(job_id, str(uuid.uuid4()), self.data_worker_1up_script)
 
 #         worker1_conf.add_downstream(worker2_conf)
 #         worker1_conf.set_sender(buffer_size=1, separator='\n')
@@ -1020,8 +1020,8 @@
 #         with open(cls.scripts_home + 'ts_emitter_every_10s.py') as fd:
 #             cls.ts_emitter_10s_script = fd.read()
 
-#         with open(cls.scripts_home + 'data_worker_1ups.py') as fd:
-#             cls.data_worker_1ups_script = fd.read()
+#         with open(cls.scripts_home + 'data_worker_1up.py') as fd:
+#             cls.data_worker_1up_script = fd.read()
 
 #         with open(cls.scripts_home + 'data_worker_2ups.py') as fd:
 #             cls.data_worker_2ups_script = fd.read()
